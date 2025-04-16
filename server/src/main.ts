@@ -210,7 +210,7 @@ router.get("/leaderboard", async (req, res) => {
 })
 
 router.use("/dashauth", async (req, res, next) => {
-    const resp = await (await fetch(`http://127.0.0.1:3000${req.path.replace("dashauth", "")}`, {
+    const resp = await (await fetch(`${getDashAuthUrl()}${req.path.replace("dashauth", "")}`, {
         body: req.body,
         headers: Object(req.headers),
         method: req.method
