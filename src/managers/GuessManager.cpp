@@ -1,0 +1,272 @@
+#include "GuessManager.hpp"
+#include <ui/layers/LevelLayer.hpp>
+
+#include <dashauth.hpp>
+using namespace dashauth;
+
+// stolen from https://github.com/GlobedGD/globed2/blob/main/src/util/gd.cpp#L11
+void reorderDownloadedLevel(GJGameLevel* level) {
+    // thank you cvolton :D
+    // this is needed so the level appears at the top of the saved list (unless Manual Level Order is enabled)
+
+    auto* levels = GameLevelManager::get()->m_onlineLevels;
+
+    bool putAtLowest = GameManager::get()->getGameVariable("0084");
+
+    int idx = 0;
+    for (const auto& [k, level] : CCDictionaryExt<::gd::string, GJGameLevel*>(levels)) {
+        if (putAtLowest) {
+            idx = std::min(idx, level->m_levelIndex);
+        } else {
+            idx = std::max(idx, level->m_levelIndex);
+        }
+    }
+
+    if (putAtLowest) {
+        idx -= 1;
+    } else {
+        idx += 1;
+    }
+
+    level->m_levelIndex = idx;
+}
+
+const std::string GuessManager::getServerUrl() {
+    auto str = Mod::get()->getSettingValue<std::string>("server-url");
+    if (str.ends_with("/")) {
+        if (str.empty()) {
+            log::error("server URL is empty... uh oh");
+            return "";
+        }
+        str.pop_back();
+    }
+    if (str.empty()) {
+        log::error("server URL is empty... uh oh");
+    }
+
+    return str;
+}
+
+void GuessManager::startNewGame() {
+    auto doTheThing = [this]() {
+        m_listener.bind([this] (web::WebTask::Event* e) {
+            if (web::WebResponse* res = e->getValue()) {
+                if (res->code() != 200) {
+                    log::error("error starting new round; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string"));
+                    return;
+                }
+
+                auto jsonRes = res->json();
+                if (jsonRes.isErr()) {
+                    log::error("error getting json: {}", jsonRes.err());
+                    return;
+                }
+
+                auto json = jsonRes.unwrap();
+
+                auto levelIdRes = json["level"].asInt();
+                if (levelIdRes.isErr()) {
+                    log::error("error getting level id: {}", levelIdRes.err());
+                    return;
+                }
+
+                auto levelId = levelIdRes.unwrap();
+                auto* glm = GameLevelManager::get();
+
+                glm->m_levelDownloadDelegate = this;
+                glm->downloadLevel(levelId, false);
+            } else if (e->isCancelled()) {
+                log::error("request cancelled");
+            }
+        });
+
+        auto req = web::WebRequest();
+        req.header("Authorization", m_daToken);
+        m_listener.setFilter(req.post(fmt::format("{}/start-new-game", getServerUrl())));
+    };
+
+    if (!m_daToken.empty()) {
+        doTheThing();
+    } else {
+        // get total score
+        // EventListener<web::WebTask> listener;
+        m_listener.bind([this] (web::WebTask::Event* e) {
+            if (web::WebResponse* res = e->getValue()) {
+                if (res->code() != 200) {
+                    log::debug("received non-200 code");
+                    return;
+                }
+
+                auto jsonRes = res->json();
+                if (jsonRes.isErr()) {
+                    log::error("error getting account json: {}", jsonRes.err());
+                    return;
+                }
+
+                auto json = jsonRes.unwrap();
+
+                auto scoreResult = json["total_score"].asInt();
+                if (scoreResult.isErr()) {
+                    log::error("unable to get score");
+                    return;
+                }
+                auto score = scoreResult.unwrap();
+                totalScore = score;
+            } else if (e->isCancelled()) {
+                log::error("request cancelled");
+            }
+        });
+
+        auto req = web::WebRequest();
+        m_listener.setFilter(req.get(fmt::format("{}/account/{}", getServerUrl(), GJAccountManager::get()->m_accountID)));
+    
+        auto notif = Notification::create(
+            "Currently authenticating with DashAuth.\nThis will take 5-10 seconds. Please wait...",
+            NotificationIcon::Loading,
+            0.f);
+        notif->show();
+
+        DashAuthRequest().getToken(Mod::get(), fmt::format("{}/dashauth/api/v1", getServerUrl()))->except([notif](std::string error) {
+            FLAlertLayer::create(
+                "Error",
+                fmt::format("DashAuth authentication error: {}", error),
+                "OK"
+            )->show();
+            notif->hide();
+        })->then([this, doTheThing, notif](std::string token) {
+            m_daToken = token;
+            notif->hide();
+            doTheThing();
+        });
+    }
+}
+
+void GuessManager::submitGuess(LevelDate date, std::function<void(int score)> callback) {
+    m_listener.bind([this, callback] (web::WebTask::Event* e) {
+        if (web::WebResponse* res = e->getValue()) {
+            if (res->code() != 200) {
+                log::error("error starting submitting guess; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string"));
+                return;
+            }
+
+            auto jsonRes = res->json();
+            if (jsonRes.isErr()) {
+                log::error("error getting json: {}", jsonRes.err());
+                return;
+            }
+
+            auto json = jsonRes.unwrap();
+
+            auto scoreResult = json["score"].asInt();
+            if (scoreResult.isErr()) {
+                log::error("unable to get score");
+                return;
+            }
+            auto score = scoreResult.unwrap();
+            totalScore += score;
+            
+            callback(score);
+        } else if (e->isCancelled()) {
+            log::error("request cancelled");
+        }
+    });
+
+    auto req = web::WebRequest();
+    req.header("Authorization", m_daToken);
+    m_listener.setFilter(req.post(fmt::format("{}/guess/{}-{}-{}", getServerUrl(), date.year, date.month, date.day)));
+}
+
+void GuessManager::endGame() {
+    auto doTheThing = [this]() {
+        m_listener.bind([this] (web::WebTask::Event* e) {
+            if (web::WebResponse* res = e->getValue()) {
+                if (res->code() != 200 && res->code() != 404) {
+                    log::error("error ending game; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string"));
+                    return;
+                }
+
+                auto layer = CreatorLayer::create();
+                auto scene = CCScene::create();
+                scene->addChild(layer);
+                CCDirector::sharedDirector()->pushScene(CCTransitionFade::create(.5f, scene));
+            } else if (e->isCancelled()) {
+                log::error("request cancelled");
+            }
+        });
+
+        auto req = web::WebRequest();
+        req.header("Authorization", m_daToken);
+        m_listener.setFilter(req.post(fmt::format("{}/endGame", getServerUrl())));
+    };
+
+    createQuickPopup(
+        "End Game?",
+        "Are you sure you want to <cr>end the game</c>?",
+        "No", "Yes",
+        [doTheThing](auto, bool btn2) {
+            if (!btn2) return;
+            doTheThing();
+        }
+    );
+}
+
+void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntry>)> callback) {
+    m_listener.bind([this, callback] (web::WebTask::Event* e) {
+        if (web::WebResponse* res = e->getValue()) {
+            if (res->code() != 200) {
+                log::error("error getting leaderboards; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string"));
+                return;
+            }
+
+            auto jsonRes = res->json();
+            if (jsonRes.isErr()) {
+                log::error("error getting json: {}", jsonRes.err());
+                return;
+            }
+
+            auto json = jsonRes.unwrap();
+
+            auto lbResult = json.asArray();
+            if (lbResult.isErr()) {
+                log::error("unable to get score");
+                return;
+            }
+            auto leaderboardJson = lbResult.unwrap();
+            std::vector<LeaderboardEntry> entries = {};
+
+            for (auto lbEntry : leaderboardJson) {
+                entries.push_back({
+                    .account_id = static_cast<int>(lbEntry["account_id"].asInt().unwrapOr(0)),
+                    .username = lbEntry["username"].asString().unwrapOr("Player"),
+                    .total_score = static_cast<int>(lbEntry["total_score"].asInt().unwrapOr(0)),
+                    .icon_id = static_cast<int>(lbEntry["icon_id"].asInt().unwrapOr(0)),
+                });
+            }
+
+            callback(entries);
+        } else if (e->isCancelled()) {
+            log::error("request cancelled");
+        }
+    });
+
+    auto req = web::WebRequest();
+    m_listener.setFilter(req.get(fmt::format("{}/leaderboard", getServerUrl())));
+}
+
+void GuessManager::levelDownloadFinished(GJGameLevel* level) {
+    auto* glm = GameLevelManager::get();
+    glm->m_levelDownloadDelegate = nullptr;
+
+    reorderDownloadedLevel(level);
+
+    this->currentLevel = level;
+    // auto layer = LevelInfoLayer::create(level, false);
+    auto layer = LevelLayer::create();
+    auto scene = CCScene::create();
+    scene->addChild(layer);
+    CCDirector::sharedDirector()->pushScene(CCTransitionFade::create(.5f, scene));
+}
+
+void GuessManager::levelDownloadFailed(int x) {
+    log::warn("could not fetch level, code {}", x);
+}

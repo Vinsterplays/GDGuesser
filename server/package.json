@@ -1,0 +1,26 @@
+{
+  "name": "gdguesser-server",
+  "version": "1.0.0",
+  "description": "GDGuesser Server",
+  "main": "out/main.js",
+  "author": "TechStudent10",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "@types/express": "^5.0.1",
+    "@types/node": "^22.14.0",
+    "tsc": "^2.0.4",
+    "typescript": "^5.8.2"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc && node out/main.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "uuid": "^11.1.0"
+  }
+}
