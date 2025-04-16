@@ -33,7 +33,7 @@ protected:
     }
 
 public:
-    static constexpr int CELL_HEIGHT = 40.f;
+    static constexpr float CELL_HEIGHT = 40.f;
 
     static UserCell* create(LeaderboardEntry lbEntry, float width) {
         auto ret = new UserCell;
