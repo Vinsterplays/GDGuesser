@@ -185,6 +185,8 @@ void GuessManager::endGame() {
                     return;
                 }
 
+                currentLevel = nullptr;
+
                 auto layer = CreatorLayer::create();
                 auto scene = CCScene::create();
                 scene->addChild(layer);
