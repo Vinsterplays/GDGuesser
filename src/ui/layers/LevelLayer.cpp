@@ -31,16 +31,8 @@ bool LevelLayer::init() {
 
     auto playBtn = CCMenuItemExt::createSpriteExtraWithFrameName("GJ_playBtn2_001.png", 1.f, [this](CCObject*){
         auto& gm = GuessManager::get();
-        auto pl = new PlayLayer;
-        if (pl->init(gm.currentLevel, false, false)) {
-            pl->autorelease();
-
-            auto scene = CCScene::create();
-            scene->addChild(pl);
-            CCDirector::sharedDirector()->pushScene(CCTransitionFade::create(.5f, scene));
-        } else {
-            delete pl;
-        }
+        auto scene = PlayLayer::scene(gm.currentLevel, false, false);
+        CCDirector::sharedDirector()->pushScene(CCTransitionFade::create(.5f, scene));
     });
 
     auto guessBtn = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Guess!"), [this](CCObject*) {
@@ -48,8 +40,14 @@ bool LevelLayer::init() {
         popup->show();
     });
 
-    auto nameLabel = CCLabelBMFont::create("?????????", "bigFont.fnt");
-    auto authorLabel = CCLabelBMFont::create("By ??????", "goldFont.fnt");
+    auto nameLabel = CCLabelBMFont::create(
+        gm.options.mode == GameMode::Normal ? gm.realLevel->m_levelName.c_str() : "?????????",
+        "bigFont.fnt"
+    );
+    auto authorLabel = CCLabelBMFont::create(
+        gm.options.mode == GameMode::Normal ? fmt::format("By {}", gm.realLevel->m_creatorName.c_str()).c_str() : "By ??????",
+        "goldFont.fnt"
+    );
 
     nameLabel->setPosition({ size.width / 2, 280.f });
     authorLabel->setPosition({ size.width / 2, 255.f });

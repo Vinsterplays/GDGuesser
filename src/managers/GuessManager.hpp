@@ -18,6 +18,28 @@ struct LeaderboardEntry {
     int icon_id;
 };
 
+enum GameMode {
+    Normal,
+    Hardcore
+};
+
+struct GameOptions {
+    GameMode mode;
+};
+
+template <>
+struct matjson::Serialize<GameOptions> {
+    static geode::Result<GameOptions> fromJson(const matjson::Value& value) {
+        GEODE_UNWRAP_INTO(int mode, value["mode"].asInt());
+        return geode::Ok(GameOptions { .mode = static_cast<GameMode>(mode) });
+    }
+    static matjson::Value toJson(const GameOptions& options) {
+        return matjson::makeObject({
+            { "mode", static_cast<int>(options.mode) },
+        });
+    }
+};
+
 // gets and stores the current level,
 // as well as handles the game state.
 class GuessManager: public CCObject, public LevelDownloadDelegate {
@@ -32,13 +54,21 @@ protected:
     void levelDownloadFinished(GJGameLevel* level) override;
     void levelDownloadFailed(int x) override;
 public:
-    GJGameLevel* currentLevel;
+    // real level downloaded from the servers
+    // (used to handle stats conflicts)
+    Ref<GJGameLevel> realLevel;
+
+    // actual level being guessed
+    // (using data copied from realLevel using GJGameLevel::copyLevelInfo)
+    Ref<GJGameLevel> currentLevel;
 
     int totalScore = 0;
 
-    void startNewGame();
+    GameOptions options;
+
+    void startNewGame(GameOptions options);
     void endGame();
-    void submitGuess(LevelDate date, std::function<void(int score)> callback);
+    void submitGuess(LevelDate date, std::function<void(int score, std::string correctDate)> callback);
 
     void getLeaderboard(std::function<void(std::vector<LeaderboardEntry>)> callback);
     const std::string getServerUrl();

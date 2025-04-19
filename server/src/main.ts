@@ -18,7 +18,32 @@ router.use(express.json());
 // })
 
 const lvlStats = fs.readFileSync(path.join(__dirname, "..", "resources", "LevelStats.dat")).toString()
-const levelIds = lvlStats.split(",").filter((_, index) => index % 2 === 0).map(val => parseInt(val));
+const unsortedLevelIds = lvlStats.split(",").filter((_, index) => index % 2 === 0).map(val => parseInt(val));
+
+// taken from https://github.com/Alphalaneous/Random-Tab/blob/main/src/RandomLayer.hpp#L27
+const ID_CUTOFFS: {[key: string]: number[]} = {
+    "1.0": [128, 3785],
+    "1.1": [3786, 13519],
+    "1.2": [13520, 66513],
+    "1.3": [66514, 122780],
+    "1.4": [122781, 184402],
+    "1.5": [184403, 422703],
+    "1.6": [422704, 835700],
+    "1.7": [835701, 1628620],
+    "1.8": [1628621, 2804784],
+    "1.9": [2804785, 11040708],
+    "2.0": [11040709, 28350553],
+    "2.1": [28360554, 97454811],
+    "2.2": [97454812, 130000000]
+}
+
+const levelIds = (() => {
+    const result: {[key: string]: number[]} = {}
+    Object.keys(ID_CUTOFFS).forEach(update => {
+        result[update] = unsortedLevelIds.filter((id) => id >= ID_CUTOFFS[update][0] && id <= ID_CUTOFFS[update][1])
+    })
+    return result
+})()
 
 async function openDB() {
     return await open({
@@ -38,9 +63,19 @@ type LevelDate = {
     day: number
 }
 
+enum GameMode {
+    Normal,
+    Hardcore
+}
+
+type GameOptions = {
+    mode: GameMode
+}
+
 type Game = {
     accountId: number
     currentLevelId: number
+    options: GameOptions
 }
 
 const games: {[key: string]: Game} = {}
@@ -58,20 +93,26 @@ function stringToLvlDate(str: string): LevelDate {
 // if the player is within a week of the correct answer, they get the maximum amount of points (500)
 // if they are not, we take off one point for every day off, to a mimimum of 0 points
 
-function calcScore(guess: LevelDate, correct: LevelDate): number {
+function calcScore(guess: LevelDate, correct: LevelDate, mode: GameMode): number {
+    const limit = mode === GameMode.Normal ? 500 : 600;
+
     const guessDate = new Date(guess.year, guess.month - 1, guess.day)
     const correctDate = new Date(correct.year, correct.month - 1, correct.day)
 
     const diffDays = Math.ceil(Math.abs(guessDate.getTime() - correctDate.getTime()) / (1000 * 3600 * 24))
 
     if (diffDays <= 7) {
-        return 500
+        return limit
     }
 
-    return Math.max(500 - diffDays, 0)
+    return Math.max(limit - diffDays, 0)
 }
 
-const getRandomLevelId = () => levelIds[Math.floor((Math.random() * levelIds.length) % levelIds.length)]
+function getRandomElement<T>(arr: Array<T>) {
+    return arr[Math.floor((Math.random() * arr.length) % arr.length)]
+}
+
+const getRandomLevelId = () => getRandomElement(levelIds[getRandomElement(Object.keys(ID_CUTOFFS))])
 
 function getDashAuthUrl() {
     let str = process.env.DASHAUTH_URL
@@ -112,6 +153,7 @@ router.post("/start-new-game", async (req, res) => {
     games[data["id"]] = {
         accountId: data["id"],
         currentLevelId: id,
+        options: req.body["options"]
     }
 
     res.json({
@@ -145,7 +187,7 @@ router.post("/guess/:date", async (req, res) => {
     )["approx"]["estimation"]
     .split("T")[0]
 
-    const score = calcScore(stringToLvlDate(date), stringToLvlDate(correctDate))
+    const score = calcScore(stringToLvlDate(date), stringToLvlDate(correctDate), games[data["id"]].options.mode)
 
     const db = await openDB()
     await db.run(`
@@ -158,7 +200,8 @@ router.post("/guess/:date", async (req, res) => {
     delete games[data["id"]]
 
     res.json({
-        score
+        score,
+        correctDate
     })
 })
 

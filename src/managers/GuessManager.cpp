@@ -47,9 +47,9 @@ const std::string GuessManager::getServerUrl() {
     return str;
 }
 
-void GuessManager::startNewGame() {
-    auto doTheThing = [this]() {
-        m_listener.bind([this] (web::WebTask::Event* e) {
+void GuessManager::startNewGame(GameOptions options) {
+    auto doTheThing = [this, options]() {
+        m_listener.bind([this, options] (web::WebTask::Event* e) {
             if (web::WebResponse* res = e->getValue()) {
                 if (res->code() != 200) {
                     log::error("error starting new round; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string"));
@@ -74,6 +74,7 @@ void GuessManager::startNewGame() {
                 auto* glm = GameLevelManager::get();
 
                 glm->m_levelDownloadDelegate = this;
+                this->options = options;
                 glm->downloadLevel(levelId, false);
             } else if (e->isCancelled()) {
                 log::error("request cancelled");
@@ -82,6 +83,7 @@ void GuessManager::startNewGame() {
 
         auto req = web::WebRequest();
         req.header("Authorization", m_daToken);
+        req.bodyJSON(options);
         m_listener.setFilter(req.post(fmt::format("{}/start-new-game", getServerUrl())));
     };
 
@@ -141,7 +143,7 @@ void GuessManager::startNewGame() {
     }
 }
 
-void GuessManager::submitGuess(LevelDate date, std::function<void(int score)> callback) {
+void GuessManager::submitGuess(LevelDate date, std::function<void(int score, std::string correctDate)> callback) {
     m_listener.bind([this, callback] (web::WebTask::Event* e) {
         if (web::WebResponse* res = e->getValue()) {
             if (res->code() != 200) {
@@ -164,8 +166,17 @@ void GuessManager::submitGuess(LevelDate date, std::function<void(int score)> ca
             }
             auto score = scoreResult.unwrap();
             totalScore += score;
+
+            auto correctDateResult = json["correctDate"].asString();
+            std::string correctDate;
+            if (correctDateResult.isErr()) {
+                log::error("unable to get correct date: {}", correctDateResult.err());
+                correctDate = "";
+            } else {
+                correctDate = correctDateResult.unwrap();
+            }
             
-            callback(score);
+            callback(score, correctDate);
         } else if (e->isCancelled()) {
             log::error("request cancelled");
         }
@@ -261,7 +272,12 @@ void GuessManager::levelDownloadFinished(GJGameLevel* level) {
 
     reorderDownloadedLevel(level);
 
-    this->currentLevel = level;
+    realLevel = level;
+
+    this->currentLevel = GJGameLevel::create();
+    this->currentLevel->copyLevelInfo(level);
+    this->currentLevel->m_levelName = "???????";
+    this->currentLevel->m_creatorName = "GDGuesser";
     // auto layer = LevelInfoLayer::create(level, false);
     auto layer = LevelLayer::create();
     auto scene = CCScene::create();

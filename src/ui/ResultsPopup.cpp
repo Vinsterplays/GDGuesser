@@ -1,9 +1,9 @@
 #include "ResultsPopup.hpp"
 #include <managers/GuessManager.hpp>
 
-ResultsPopup* ResultsPopup::create(int score) {
+ResultsPopup* ResultsPopup::create(int score, std::string correctDate) {
     auto ret = new ResultsPopup;
-    if (ret->initAnchored(370.f, 145.f, score)) {
+    if (ret->initAnchored(370.f, 145.f, score, correctDate)) {
         ret->autorelease();
         return ret;
     }
@@ -11,20 +11,21 @@ ResultsPopup* ResultsPopup::create(int score) {
     return nullptr;
 }
 
-bool ResultsPopup::setup(int score) {
+bool ResultsPopup::setup(int score, std::string correctDate) {
     this->setTitle("Results");
 
     m_closeBtn->removeFromParent();
 
-    auto label = CCLabelBMFont::create(fmt::format("You got a score of {}!\nYour total score is {}.", score, GuessManager::get().totalScore).c_str(), "bigFont.fnt");
+    auto label = CCLabelBMFont::create(fmt::format("You got a score of {}!\nThe correct answer was {}\nYour total score is {}.", score, correctDate, GuessManager::get().totalScore).c_str(), "bigFont.fnt");
     label->setScale(0.5f);
+    label->setAlignment(CCTextAlignment::kCCTextAlignmentCenter);
     m_mainLayer->addChildAtPosition(label, Anchor::Center, ccp(0.f, 5.f));
 
     auto nextRoundSpr = ButtonSprite::create("Continue");
     nextRoundSpr->setScale(0.8f);
     auto nextRoundBtn = CCMenuItemExt::createSpriteExtra(nextRoundSpr, [](CCObject*) {
-        auto& gm = GuessManager::get();
-        gm.startNewGame();
+        // auto& gm = GuessManager::get();
+        // gm.startNewGame();
     });
 
     auto endGameSpr = ButtonSprite::create("End Game", "goldFont.fnt", "GJ_button_06.png");

@@ -3,11 +3,20 @@
 #include <ui/layers/LevelLayer.hpp>
 
 void HookedPauseLayer::tryQuit(CCObject* sender) {
-    if (!GuessManager::get().currentLevel) {
+    auto& gm = GuessManager::get();
+    if (!gm.currentLevel) {
         PauseLayer::tryQuit(sender);
         return;
     }
-    
+
+    // thanks cvolton for the help!
+    int sessionAttempts = PlayLayer::get()->m_attempts;
+    int oldAttempts = gm.realLevel->m_attempts.value();
+    gm.realLevel->handleStatsConflict(gm.currentLevel);
+    gm.realLevel->m_attempts = sessionAttempts + oldAttempts;
+    gm.realLevel->m_orbCompletion = gm.currentLevel->m_orbCompletion;
+    GameManager::get()->reportPercentageForLevel(gm.realLevel->m_levelID, gm.realLevel->m_normalPercent, gm.realLevel->isPlatformer());
+
     auto layer = LevelLayer::create();
     auto scene = CCScene::create();
     scene->addChild(layer);
@@ -17,9 +26,10 @@ void HookedPauseLayer::tryQuit(CCObject* sender) {
 void HookedPauseLayer::customSetup() {
     PauseLayer::customSetup();
 
-    if (!GuessManager::get().currentLevel) return;
+    auto& gm = GuessManager::get();
+    if (!gm.currentLevel) return;
 
     if (auto titleLabel = typeinfo_cast<CCLabelBMFont*>(this->getChildByIDRecursive("level-name"))) {
-        titleLabel->setString("????????");
+        titleLabel->setString(gm.currentLevel->m_levelName.c_str());
     }
 }
