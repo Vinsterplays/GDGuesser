@@ -3,6 +3,35 @@
 #include <managers/GuessManager.hpp>
 #include <ui/GuessPopup.hpp>
 
+// thanks Vinster!
+static int getLevelDifficulty(GJGameLevel* level) {
+    if (level->m_autoLevel) return 0;
+    auto diff = level->m_difficulty;
+
+    if (level->m_ratingsSum != 0)
+        diff = static_cast<GJDifficulty>(level->m_ratingsSum / 10);
+
+    if (level->m_demon > 0) {
+        switch (level->m_demonDifficulty) {
+            case 3: return 7;
+            case 4: return 8;
+            case 5: return 9;
+            case 6: return 10;
+            default: return 6;
+        }
+    }
+
+    switch (diff) {
+        case GJDifficulty::Easy: return 1;
+        case GJDifficulty::Normal: return 2;
+        case GJDifficulty::Hard: return 3;
+        case GJDifficulty::Harder: return 4;
+        case GJDifficulty::Insane: return 5;
+        case GJDifficulty::Demon: return 6;
+        default: return -1;
+    }
+}
+
 LevelLayer* LevelLayer::create() {
     auto ret = new LevelLayer;
     if (ret->init()) {
@@ -89,6 +118,32 @@ bool LevelLayer::init() {
         gm.options.mode == GameMode::Normal ? fmt::format("By {}", gm.realLevel->m_creatorName).c_str() : "By ??????",
         "goldFont.fnt"
     );
+
+    // thanks once again Vinster!!
+    auto difficultySprite = GJDifficultySprite::create(
+        gm.options.mode == GameMode::Normal ? getLevelDifficulty(gm.realLevel) : 0,
+        static_cast<GJDifficultyName>(0)
+    );
+
+    auto starsLabel = CCLabelBMFont::create(
+        gm.options.mode == GameMode::Normal ? fmt::format("{}", (gm.realLevel->m_stars).value()).c_str() : "??",
+        "bigFont.fnt"
+    );
+
+    auto starsIcon = CCSprite::createWithSpriteFrameName(
+        "star_small01_001.png"
+    );
+
+    difficultySprite->setPosition({ size.width * 0.5f - 100.f, 226.f});
+    starsLabel->setPosition({ difficultySprite->getPositionX(), difficultySprite->getPositionY() - 30.f});
+    starsIcon->setPosition({ starsLabel->getPositionX() + 8.f, starsLabel->getPositionY() });
+
+    starsLabel->setScale(0.4f);
+    starsLabel->setAnchorPoint({ 1.f, 0.5f });
+
+    this->addChild(difficultySprite);
+    this->addChild(starsLabel);
+    this->addChild(starsIcon);
 
     nameLabel->setPosition({ size.width * 0.5f, director->getScreenTop() - 17.f });
     authorLabel->setPosition({ size.width * 0.5f, nameLabel->getPositionY() - 22.f });
