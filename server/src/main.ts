@@ -137,11 +137,26 @@ async function checkToken(token: string) {
     return req 
 }
 
+async function getUser(account_id: string | number) {
+    const db = await openDB()
+
+    const response = await db.get(`
+        SELECT * FROM scores
+        WHERE account_id = ?     
+    `, account_id)
+
+    if (!response) {
+        return undefined
+    }
+
+    return response
+}
+
 router.get("/", (req, res) => {
     res.send("we are up and running! go get guessing!")
 })
 
-router.post("/", async (req, res, next) => {
+router.post("/account", async (req, res) => {
     const token = req.headers.authorization || "";
     const daResp = await checkToken(token)
 
@@ -150,17 +165,31 @@ router.post("/", async (req, res, next) => {
         return
     }
 
-    next()
+    const data = (await daResp.json())["data"]
+    const db = await openDB()
+    await db.run(`
+        INSERT INTO scores (account_id, username, icon_id, color1, color2, color3, total_score, accuracy)
+        VALUES (?, ?, ?, ?, ?, ?, 0, 0)    
+        ON CONFLICT (account_id) DO
+        UPDATE SET username = ?, icon_id = ?, color1 = ?, color2 = ?, color3 = ?
+        `, 
+        data["id"], data["username"],
+        req.body["icon_id"], req.body["color1"], req.body["color2"], req.body["color3"],
+        data["username"],
+        req.body["icon_id"], req.body["color1"], req.body["color2"], req.body["color3"]
+    )
+
+    res.status(200).json(await getUser(data["id"]))
 })
 
 router.post("/start-new-game", async (req, res) => {
     const token = req.headers.authorization || "";
     const daResp = await checkToken(token)
 
-    // if (daResp.status === 401) {
-    //     res.status(401).send("invalid token")
-    //     return
-    // }
+    if (daResp.status === 401) {
+        res.status(401).send("invalid token")
+        return
+    }
 
     const data = (await daResp.json())["data"]
     if (Object.keys(games).includes(data["id"])) {
@@ -246,12 +275,7 @@ router.post("/endGame", async (req, res) => {
 })
 
 router.get("/account/:id", async (req, res) => {
-    const db = await openDB()
-
-    const response = await db.get(`
-        SELECT * FROM scores
-        WHERE account_id = ?     
-    `, req.params.id)
+    const response = await getUser(req.params.id)
 
     if (!response) {
         res.status(404).send("no account found")

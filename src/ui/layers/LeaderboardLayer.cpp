@@ -6,27 +6,46 @@
 class UserCell : public CCNode {
 protected:
     bool init(LeaderboardEntry lbEntry, int index, float width) {
-        auto nameLabel = CCLabelBMFont::create(fmt::format("{}. {}", index, lbEntry.username).c_str(), "goldFont.fnt");
+        auto nameLabel = CCLabelBMFont::create(lbEntry.username.c_str(), "goldFont.fnt");
         auto nameBtn = CCMenuItemExt::createSpriteExtra(nameLabel, [lbEntry](CCObject*) {
             bool myself = lbEntry.account_id == GJAccountManager::get()->m_accountID;
             ProfilePage::create(lbEntry.account_id, myself)->show();
         });
         nameBtn->ignoreAnchorPointForPosition(true);
 
-        auto scoreLabel = CCLabelBMFont::create(fmt::format("{}/{:.1f}%", lbEntry.total_score, lbEntry.accuracy).c_str(), "bigFont.fnt");
+        auto scoreLabel = CCLabelBMFont::create(fmt::format("{:.1f}%", lbEntry.accuracy).c_str(), "bigFont.fnt");
         scoreLabel->setScale(0.8f);
+
+        auto player = SimplePlayer::create(0);
+        auto gm = GameManager::get();
+
+        player->updatePlayerFrame(lbEntry.icon_id, IconType::Cube);
+        player->setColor(gm->colorForIdx(lbEntry.color1));
+        player->setSecondColor(gm->colorForIdx(lbEntry.color2));
+
+        if (lbEntry.color3 == -1) {
+            player->disableGlowOutline();
+        } else {
+            player->setGlowOutline(gm->colorForIdx(lbEntry.color3));
+        }
+
+        player->setScale(0.8f);
 
         auto nameMenu = CCMenu::create();
         nameMenu->addChild(nameBtn);
         nameMenu->setContentHeight(nameBtn->getContentHeight());
         nameMenu->ignoreAnchorPointForPosition(false);
 
-        nameMenu->setPosition({ 25.f, CELL_HEIGHT / 2.f });
+        player->setPosition({ 25.f, CELL_HEIGHT / 2.f });
+        player->setAnchorPoint({ 0.f, 0.5f });
+
+        nameMenu->setPosition({ player->getPositionX() + 20.f, CELL_HEIGHT / 2.f + 1 });
         nameMenu->setAnchorPoint({ 0.f, 0.5f });
 
         scoreLabel->setPosition({ width - 25.f, CELL_HEIGHT / 2.f });
         scoreLabel->setAnchorPoint({ 1.f, 0.5f });
 
+        this->addChild(player);
         this->addChild(nameMenu);
         this->addChild(scoreLabel);
 

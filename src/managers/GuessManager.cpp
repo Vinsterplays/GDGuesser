@@ -48,52 +48,8 @@ const std::string GuessManager::getServerUrl() {
 }
 
 void GuessManager::startNewGame(GameOptions options) {
-    
-    auto doTheThing = [this, options]() {
-        m_loadingOverlay = LoadingOverlayLayer::create();
-        m_loadingOverlay->addToScene();
-
-        m_listener.bind([this, options] (web::WebTask::Event* e) {
-            if (web::WebResponse* res = e->getValue()) {
-                if (res->code() != 200) {
-                    log::error("error starting new round; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string"));
-                    return;
-                }
-
-                auto jsonRes = res->json();
-                if (jsonRes.isErr()) {
-                    log::error("error getting json: {}", jsonRes.err());
-                    return;
-                }
-
-                auto json = jsonRes.unwrap();
-
-                auto levelIdRes = json["level"].asInt();
-                if (levelIdRes.isErr()) {
-                    log::error("error getting level id: {}", levelIdRes.err());
-                    return;
-                }
-
-                auto levelId = levelIdRes.unwrap();
-                this->options = options;
-
-                auto* glm = GameLevelManager::get();
-                glm->m_levelManagerDelegate = this;
-                glm->getOnlineLevels(GJSearchObject::create(SearchType::Search, std::to_string(levelId)));
-            } else if (e->isCancelled()) {
-                if (m_loadingOverlay) m_loadingOverlay->removeMe();
-                log::error("request cancelled");
-            }
-        });
-
-        auto req = web::WebRequest();
-        req.header("Authorization", m_daToken);
-        req.bodyJSON(matjson::makeObject({{"options", options}}));
-        m_listener.setFilter(req.post(fmt::format("{}/start-new-game", getServerUrl())));
-    };
-    
-    auto doAuthentication = [this, doTheThing]() {
-        // get total score
+    // get total score
+    auto getAcc = [this]() {
         // EventListener<web::WebTask> listener;
         m_listener.bind([this] (web::WebTask::Event* e) {
             if (web::WebResponse* res = e->getValue()) {
@@ -124,11 +80,68 @@ void GuessManager::startNewGame(GameOptions options) {
         });
 
         auto req = web::WebRequest();
-        m_listener.setFilter(req.get(fmt::format("{}/account/{}", getServerUrl(), GJAccountManager::get()->m_accountID)));
+        req.header("Authorization", m_daToken);
+        auto gm = GameManager::get();
+        req.bodyJSON(matjson::makeObject({
+            {"icon_id", gm->getPlayerFrame()},
+            {"color1", gm->m_playerColor.value()},
+            {"color2", gm->m_playerColor2.value()},
+            {"color3", gm->m_playerGlow ?
+                gm->m_playerGlowColor.value() :
+                -1
+            },
+        }));
+        m_listener.setFilter(req.post(fmt::format("{}/account", getServerUrl())));
+    };
+
+    auto doTheThing = [this, options, getAcc]() {
+        m_loadingOverlay = LoadingOverlayLayer::create();
+        m_loadingOverlay->addToScene();
+
+        m_listener.bind([this, options, getAcc] (web::WebTask::Event* e) {
+            if (web::WebResponse* res = e->getValue()) {
+                if (res->code() != 200) {
+                    log::error("error starting new round; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string"));
+                    return;
+                }
+
+                auto jsonRes = res->json();
+                if (jsonRes.isErr()) {
+                    log::error("error getting json: {}", jsonRes.err());
+                    return;
+                }
+
+                auto json = jsonRes.unwrap();
+
+                auto levelIdRes = json["level"].asInt();
+                if (levelIdRes.isErr()) {
+                    log::error("error getting level id: {}", levelIdRes.err());
+                    return;
+                }
+
+                auto levelId = levelIdRes.unwrap();
+                this->options = options;
+
+                auto* glm = GameLevelManager::get();
+                glm->m_levelManagerDelegate = this;
+                glm->getOnlineLevels(GJSearchObject::create(SearchType::Search, std::to_string(levelId)));
+                getAcc();
+            } else if (e->isCancelled()) {
+                if (m_loadingOverlay) m_loadingOverlay->removeMe();
+                log::error("request cancelled");
+            }
+        });
+
+        auto req = web::WebRequest();
+        req.header("Authorization", m_daToken);
+        req.bodyJSON(matjson::makeObject({{"options", options}}));
+        m_listener.setFilter(req.post(fmt::format("{}/start-new-game", getServerUrl())));
+    };
     
+    auto doAuthentication = [this, doTheThing]() {
         auto notif = Notification::create(
             "Currently authenticating with DashAuth.\nThis will take 5-10 seconds. Please wait...",
-            NotificationIcon::Loading,
+            NotificationIcon::Loading,  
             0.f);
         notif->show();
 
@@ -291,6 +304,9 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
                     .username = lbEntry["username"].asString().unwrapOr("Player"),
                     .total_score = static_cast<int>(lbEntry["total_score"].asInt().unwrapOr(0)),
                     .icon_id = static_cast<int>(lbEntry["icon_id"].asInt().unwrapOr(0)),
+                    .color1 = static_cast<int>(lbEntry["color1"].asInt().unwrapOr(0)),
+                    .color2 = static_cast<int>(lbEntry["color2"].asInt().unwrapOr(0)),
+                    .color3 = static_cast<int>(lbEntry["color3"].asInt().unwrapOr(0)),
                     .accuracy = static_cast<float>(lbEntry["accuracy"].asDouble().unwrapOr(0.f)),
                 });
             }

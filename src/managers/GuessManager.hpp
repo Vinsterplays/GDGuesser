@@ -17,6 +17,9 @@ struct LeaderboardEntry {
     std::string username;
     int total_score;
     int icon_id;
+    int color1;
+    int color2;
+    int color3;
     float accuracy;
 };
 
