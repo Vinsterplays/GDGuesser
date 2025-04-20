@@ -71,11 +71,11 @@ void GuessManager::startNewGame(GameOptions options) {
                 }
 
                 auto levelId = levelIdRes.unwrap();
-                auto* glm = GameLevelManager::get();
-
-                glm->m_levelDownloadDelegate = this;
                 this->options = options;
-                glm->downloadLevel(levelId, false);
+
+                auto* glm = GameLevelManager::get();
+                glm->m_levelManagerDelegate = this;
+                glm->getOnlineLevels(GJSearchObject::create(SearchType::Search, std::to_string(levelId)));
             } else if (e->isCancelled()) {
                 log::error("request cancelled");
             }
@@ -83,7 +83,7 @@ void GuessManager::startNewGame(GameOptions options) {
 
         auto req = web::WebRequest();
         req.header("Authorization", m_daToken);
-        req.bodyJSON(options);
+        req.bodyJSON(matjson::makeObject({{"options", options}}));
         m_listener.setFilter(req.post(fmt::format("{}/start-new-game", getServerUrl())));
     };
 
@@ -264,6 +264,20 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
 
     auto req = web::WebRequest();
     m_listener.setFilter(req.get(fmt::format("{}/leaderboard", getServerUrl())));
+}
+
+void GuessManager::loadLevelsFinished(cocos2d::CCArray* p0, char const* p1, int p2) {
+    auto* glm = GameLevelManager::get();
+    glm->m_levelManagerDelegate = nullptr;
+
+    if (p0->count()) {
+        glm->m_levelDownloadDelegate = this;
+        glm->downloadLevel(static_cast<GJGameLevel*>(p0->objectAtIndex(0))->m_levelID, false);
+    }
+}
+
+void GuessManager::loadLevelsFailed(char const* p0, int p1) {
+    log::error("unable to load level: {}, {}", p1, p0);
 }
 
 void GuessManager::levelDownloadFinished(GJGameLevel* level) {

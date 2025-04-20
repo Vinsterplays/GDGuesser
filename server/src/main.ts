@@ -90,7 +90,8 @@ function stringToLvlDate(str: string): LevelDate {
 }
 
 // scoring works as indicated in the Doggie video
-// if the player is within a week of the correct answer, they get the maximum amount of points (500)
+// if the player is within a week of the correct answer, they get the maximum amount of points
+// (500 for normal, 600 for hardcore)
 // if they are not, we take off one point for every day off, to a mimimum of 0 points
 
 function calcScore(guess: LevelDate, correct: LevelDate, mode: GameMode): number {

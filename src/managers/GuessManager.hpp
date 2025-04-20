@@ -42,7 +42,7 @@ struct matjson::Serialize<GameOptions> {
 
 // gets and stores the current level,
 // as well as handles the game state.
-class GuessManager: public CCObject, public LevelDownloadDelegate {
+class GuessManager: public CCObject, public LevelDownloadDelegate, public LevelManagerDelegate {
 protected:
     GuessManager() {}
 
@@ -51,8 +51,19 @@ protected:
     // DashAuth token
     std::string m_daToken;
 
+    // callbacks
     void levelDownloadFinished(GJGameLevel* level) override;
     void levelDownloadFailed(int x) override;
+    
+    void loadLevelsFinished(cocos2d::CCArray* p0, char const* p1, int p2) override;
+    void loadLevelsFinished(cocos2d::CCArray* p0, char const* p1) override {
+        this->loadLevelsFinished(p0, p1, 0);
+    }
+
+    void loadLevelsFailed(char const* p0, int p1) override;
+    void loadLevelsFailed(char const* p0) override {
+        this->loadLevelsFailed(p0, 0);
+    }
 public:
     // real level downloaded from the servers
     // (used to handle stats conflicts)
