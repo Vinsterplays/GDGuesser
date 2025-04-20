@@ -5,14 +5,15 @@
 
 class UserCell : public CCNode {
 protected:
-    bool init(LeaderboardEntry lbEntry, float width) {
-        auto nameLabel = CCLabelBMFont::create(lbEntry.username.c_str(), "goldFont.fnt");
+    bool init(LeaderboardEntry lbEntry, int index, float width) {
+        auto nameLabel = CCLabelBMFont::create(fmt::format("{}. {}", index, lbEntry.username).c_str(), "goldFont.fnt");
         auto nameBtn = CCMenuItemExt::createSpriteExtra(nameLabel, [lbEntry](CCObject*) {
             bool myself = lbEntry.account_id == GJAccountManager::get()->m_accountID;
             ProfilePage::create(lbEntry.account_id, myself)->show();
         });
         nameBtn->ignoreAnchorPointForPosition(true);
-        auto scoreLabel = CCLabelBMFont::create(std::to_string(lbEntry.total_score).c_str(), "bigFont.fnt");
+
+        auto scoreLabel = CCLabelBMFont::create(fmt::format("{}/{:.1f}%", lbEntry.total_score, lbEntry.accuracy).c_str(), "bigFont.fnt");
         scoreLabel->setScale(0.8f);
 
         auto nameMenu = CCMenu::create();
@@ -37,9 +38,9 @@ protected:
 public:
     static constexpr float CELL_HEIGHT = 40.f;
 
-    static UserCell* create(LeaderboardEntry lbEntry, float width) {
+    static UserCell* create(LeaderboardEntry lbEntry, int index, float width) {
         auto ret = new UserCell;
-        if (ret->init(lbEntry, width)) {
+        if (ret->init(lbEntry, index, width)) {
             ret->autorelease();
             return ret;
         }
@@ -92,8 +93,9 @@ bool GDGLeaderboardLayer::init() {
     float listWidth = 400.f;
     gm.getLeaderboard([this, listWidth, size, spinner](std::vector<LeaderboardEntry> lb) {
         auto listItems = CCArray::create();
-        for (auto item : lb) {
-            auto cell = UserCell::create(item, listWidth);
+        for (int i = 0; i < lb.size(); i++) {
+            auto item = lb[i];
+            auto cell = UserCell::create(item, i + 1, listWidth);
             cell->setAnchorPoint({ 0.f, 0.5f });
             cell->setContentSize({ listWidth, cell->CELL_HEIGHT });
             listItems->addObject(cell);

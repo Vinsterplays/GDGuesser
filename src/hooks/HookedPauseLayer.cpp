@@ -9,15 +9,9 @@ void HookedPauseLayer::tryQuit(CCObject* sender) {
         return;
     }
 
+    gm.syncScores();
+    
     auto playLayer = PlayLayer::get();
-
-    // thanks cvolton for the help!
-    int sessionAttempts = playLayer->m_attempts;
-    int oldAttempts = gm.realLevel->m_attempts.value();
-    gm.realLevel->handleStatsConflict(gm.currentLevel);
-    gm.realLevel->m_attempts = sessionAttempts + oldAttempts;
-    gm.realLevel->m_orbCompletion = gm.currentLevel->m_orbCompletion;
-    GameManager::get()->reportPercentageForLevel(gm.realLevel->m_levelID, gm.realLevel->m_normalPercent, gm.realLevel->isPlatformer());
 
     auto layer = LevelLayer::create();
     auto scene = CCScene::create();

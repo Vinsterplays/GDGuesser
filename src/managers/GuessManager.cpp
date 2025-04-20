@@ -291,6 +291,7 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
                     .username = lbEntry["username"].asString().unwrapOr("Player"),
                     .total_score = static_cast<int>(lbEntry["total_score"].asInt().unwrapOr(0)),
                     .icon_id = static_cast<int>(lbEntry["icon_id"].asInt().unwrapOr(0)),
+                    .accuracy = static_cast<float>(lbEntry["accuracy"].asDouble().unwrapOr(0.f)),
                 });
             }
 
@@ -302,6 +303,19 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
 
     auto req = web::WebRequest();
     m_listener.setFilter(req.get(fmt::format("{}/leaderboard", getServerUrl())));
+}
+
+void GuessManager::syncScores() {
+    if (!currentLevel || !realLevel) return;
+
+    // thanks cvolton for the help!
+    auto playLayer = PlayLayer::get();
+    int sessionAttempts = playLayer->m_attempts;
+    int oldAttempts = realLevel->m_attempts.value();
+    realLevel->handleStatsConflict(currentLevel);
+    realLevel->m_attempts = sessionAttempts + oldAttempts;
+    realLevel->m_orbCompletion = currentLevel->m_orbCompletion;
+    GameManager::get()->reportPercentageForLevel(realLevel->m_levelID, realLevel->m_normalPercent, realLevel->isPlatformer());
 }
 
 void GuessManager::loadLevelsFinished(cocos2d::CCArray* p0, char const* p1, int p2) {

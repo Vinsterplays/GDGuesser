@@ -93,8 +93,9 @@ function stringToLvlDate(str: string): LevelDate {
 // if the player is within a week of the correct answer, they get the maximum amount of points
 // (500 for normal, 600 for hardcore)
 // if they are not, we take off one point for every day off, to a mimimum of 0 points
+// returns the score and their accuracy
 
-function calcScore(guess: LevelDate, correct: LevelDate, mode: GameMode): number {
+function calcScore(guess: LevelDate, correct: LevelDate, mode: GameMode): number[] {
     const limit = mode === GameMode.Normal ? 500 : 600;
 
     const guessDate = new Date(guess.year, guess.month - 1, guess.day)
@@ -103,10 +104,11 @@ function calcScore(guess: LevelDate, correct: LevelDate, mode: GameMode): number
     const diffDays = Math.ceil(Math.abs(guessDate.getTime() - correctDate.getTime()) / (1000 * 3600 * 24))
 
     if (diffDays <= 7) {
-        return limit
+        return [limit, 100]
     }
 
-    return Math.max(limit - diffDays, 0)
+    const score = Math.max(limit - diffDays, 0)
+    return [score, score / limit * 100]
 }
 
 function getRandomElement<T>(arr: Array<T>) {
@@ -204,15 +206,17 @@ router.post("/guess/:date", async (req, res) => {
     )["approx"]["estimation"]
     .split("T")[0]
 
-    const score = calcScore(stringToLvlDate(date), stringToLvlDate(correctDate), games[data["id"]].options.mode)
+    const scoreResult = calcScore(stringToLvlDate(date), stringToLvlDate(correctDate), games[data["id"]].options.mode)
+    const score = scoreResult[0]
+    const accuracy = scoreResult[1]
 
     const db = await openDB()
     await db.run(`
-        INSERT INTO scores (account_id, username, total_score, icon_id)
-        VALUES (?, ?, ?, ?)    
+        INSERT INTO scores (account_id, username, total_score, icon_id, accuracy)
+        VALUES (?, ?, ?, ?, ?)    
         ON CONFLICT (account_id) DO
-        UPDATE SET username = ?, total_score = total_score + ?
-    `, data["id"], data["username"], score, 1, data["username"], score)
+        UPDATE SET username = ?, total_score = total_score + ?, accuracy = (accuracy + ?) / 2
+    `, data["id"], data["username"], score, 1, accuracy, data["username"], score, accuracy)
 
     delete games[data["id"]]
 
@@ -263,7 +267,7 @@ router.get("/leaderboard", async (req, res) => {
     const db = await openDB()
     const results = await db.all(`
         SELECT * FROM scores
-        ORDER BY total_score DESC
+        ORDER BY accuracy DESC
         LIMIT 100
     `)
     res.json(results)

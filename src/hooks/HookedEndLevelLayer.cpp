@@ -3,11 +3,14 @@
 #include <ui/layers/LevelLayer.hpp>
 
 void HookedEndLevelLayer::onMenu(CCObject* sender) {
-    if (!GuessManager::get().currentLevel) {
+    auto& gm = GuessManager::get();
+    if (!gm.currentLevel) {
         EndLevelLayer::onMenu(sender);
         return;
     }
     
+    gm.syncScores();
+
     auto layer = LevelLayer::create();
     auto scene = CCScene::create();
     scene->addChild(layer);

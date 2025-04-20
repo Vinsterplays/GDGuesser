@@ -17,6 +17,7 @@ struct LeaderboardEntry {
     std::string username;
     int total_score;
     int icon_id;
+    float accuracy;
 };
 
 enum GameMode {
@@ -83,6 +84,8 @@ public:
     void startNewGame(GameOptions options);
     void endGame();
     void submitGuess(LevelDate date, std::function<void(int score, std::string correctDate, LevelDate date)> callback);
+
+    void syncScores();
 
     void getLeaderboard(std::function<void(std::vector<LeaderboardEntry>)> callback);
     const std::string getServerUrl();
