@@ -149,7 +149,7 @@ router.get("/", (req, res) => {
 })
 
 router.post("/account", async (req, res) => {
-    const token = req.headers.authorization
+    const token = req.headers.authorization || ""
     const account_id = req.body["account_id"]
     const daResp = await checkToken(token, account_id)
     
