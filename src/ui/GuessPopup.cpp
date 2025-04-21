@@ -67,7 +67,7 @@ bool GuessPopup::setup() {
                 year,
                 month,
                 day
-            }, [this](int score, std::string correctDate, LevelDate date) {
+            }, [this](int score, LevelDate correctDate, LevelDate date) {
                 this->onClose(nullptr);
                 ResultsPopup::create(score, correctDate, date)->show();
             });

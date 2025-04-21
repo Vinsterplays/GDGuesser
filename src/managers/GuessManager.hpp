@@ -88,7 +88,7 @@ public:
 
     void startNewGame(GameOptions options);
     void endGame();
-    void submitGuess(LevelDate date, std::function<void(int score, std::string correctDate, LevelDate date)> callback);
+    void submitGuess(LevelDate date, std::function<void(int score, LevelDate correctDate, LevelDate date)> callback);
 
     void syncScores();
 

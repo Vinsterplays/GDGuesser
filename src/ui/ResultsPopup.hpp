@@ -5,11 +5,11 @@
 
 using namespace geode::prelude;
 
-class ResultsPopup : public geode::Popup<int, std::string, LevelDate> {
+class ResultsPopup : public geode::Popup<int, LevelDate, LevelDate> {
 protected:
-    bool setup(int score, std::string correctDate, LevelDate date) override;
+    bool setup(int score, LevelDate correctDate, LevelDate date) override;
 
     void onClose(cocos2d::CCObject *) override;
 public:
-    static ResultsPopup* create(int score, std::string correctDate, LevelDate date);
+    static ResultsPopup* create(int score, LevelDate correctDate, LevelDate date);
 };

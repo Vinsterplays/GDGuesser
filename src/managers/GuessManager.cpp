@@ -195,7 +195,7 @@ void GuessManager::startNewGame(GameOptions options) {
     }
 }
 
-void GuessManager::submitGuess(LevelDate date, std::function<void(int score, std::string correctDate, LevelDate date)> callback) {
+void GuessManager::submitGuess(LevelDate date, std::function<void(int score, LevelDate correctDate, LevelDate date)> callback) {
     m_loadingOverlay = LoadingOverlayLayer::create();
     m_loadingOverlay->addToScene();
 
@@ -221,18 +221,14 @@ void GuessManager::submitGuess(LevelDate date, std::function<void(int score, std
             }
             auto score = scoreResult.unwrap();
             totalScore += score;
-
-            auto correctDateResult = json["correctDate"].asString();
-            std::string correctDate;
-            if (correctDateResult.isErr()) {
-                log::error("unable to get correct date: {}", correctDateResult.err());
-                correctDate = "";
-            } else {
-                correctDate = correctDateResult.unwrap();
-            }
             
             if (m_loadingOverlay) m_loadingOverlay->removeMe();
-            callback(score, correctDate, date);
+            log::info("{}", static_cast<int>(json["correctDate"]["year"].asInt().unwrapOr(0)));
+            callback(score, {
+                .year = static_cast<int>(json["correctDate"]["year"].asInt().unwrapOr(0)),
+                .month = static_cast<int>(json["correctDate"]["month"].asInt().unwrapOr(0)),
+                .day = static_cast<int>(json["correctDate"]["day"].asInt().unwrapOr(0)),
+            }, date);
         } else if (e->isCancelled()) {
             if (m_loadingOverlay) m_loadingOverlay->removeMe();
             log::error("request cancelled");

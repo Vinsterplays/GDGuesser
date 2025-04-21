@@ -266,7 +266,7 @@ router.post("/guess/:date", async (req, res) => {
 
     res.json({
         score,
-        correctDate
+        correctDate: stringToLvlDate(correctDate)
     })
 })
 

@@ -1,7 +1,7 @@
 #include "ResultsPopup.hpp"
 #include <managers/GuessManager.hpp>
 
-ResultsPopup* ResultsPopup::create(int score, std::string correctDate, LevelDate date) {
+ResultsPopup* ResultsPopup::create(int score, LevelDate correctDate, LevelDate date) {
     auto ret = new ResultsPopup;
     if (ret->initAnchored(360.f, 145.f, score, correctDate, date)) {
         ret->autorelease();
@@ -11,14 +11,15 @@ ResultsPopup* ResultsPopup::create(int score, std::string correctDate, LevelDate
     return nullptr;
 }
 
-bool ResultsPopup::setup(int score, std::string correctDate, LevelDate date) {
+bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     this->setTitle("Results");
 
     m_closeBtn->removeFromParent();
 
     std::string submittedDate = fmt::format("{:04d}-{:02d}-{:02d}", date.year, date.month, date.day);
+    std::string correctDateFormatted = fmt::format("{:04d}-{:02d}-{:02d}", correctDate.year, correctDate.month, correctDate.day);
 
-    auto textArea = TextArea::create(fmt::format("You got a score of <cl>{}</c>!\nThe correct answer was <cl>{}</c>.\nYou guessed <cl>{}</c>.\nYour total score is <cl>{}</c>.", score, correctDate, submittedDate, GuessManager::get().totalScore), "bigFont.fnt", 1.f, 800.f, { 0.5f, 1.f }, 36, false);
+    auto textArea = TextArea::create(fmt::format("You got a score of <cl>{}</c>!\nThe correct answer was <cl>{}</c>.\nYou guessed <cl>{}</c>.\nYour total score is <cl>{}</c>.", score, correctDateFormatted, submittedDate, GuessManager::get().totalScore), "bigFont.fnt", 1.f, 800.f, { 0.5f, 1.f }, 36, false);
     textArea->setScale(0.43f);
     m_mainLayer->addChildAtPosition(textArea, Anchor::Center, ccp(0.f, 14.f));
 
