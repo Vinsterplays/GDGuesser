@@ -29,7 +29,14 @@
 			"name": "Date Format",
 			"default": "DD/MM/YYYY",
 			"one-of": ["DD/MM/YYYY", "MM/DD/YYYY", "YYYY/MM/DD"],
-			"description": "What date format to use, added this because Americans will be annoying about it otherwise."
+			"description": "What date format to use, added this to cater to others worldwide (mostly Americans...)"
 		}
-	}
+	},
+	"dependencies": [
+	        {
+	            "id": "geode.node-ids",
+	            "version": "v1.20.1",
+	            "importance": "required"
+	        }
+	]
 }
