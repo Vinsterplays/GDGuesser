@@ -134,8 +134,8 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     );
     starsLabel->setScale(0.4f);
     starsLabel->setAnchorPoint({ 1.f, 0.5f });
-    m_mainLayer->addChildAtPosition(starsLabel, Anchor::Center, ccp(-85.f, -40.f));
-    m_mainLayer->addChildAtPosition(starsIcon, Anchor::Center, ccp(-78.f, -40.f));
+    m_mainLayer->addChildAtPosition(starsLabel, Anchor::Center, ccp(-85.f, gm.realLevel->m_demon > 0 ? -40.f : -30.f));
+    m_mainLayer->addChildAtPosition(starsIcon, Anchor::Center, ccp(-78.f, gm.realLevel->m_demon > 0 ? -40.f : -30.f));
     starsLabel->setID("result-stars-label"_spr);
     starsIcon->setID("result-stars-icon"_spr);
 
@@ -180,7 +180,7 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
         "bigFont.fnt"
     );
     correctDateLabel->setScale(0.35f);
-    correctDateLabel->setColor({ 0, 100, 255 });
+    correctDateLabel->setColor({ 96, 171, 239 });
     m_mainLayer->addChildAtPosition(correctDateLabel, Anchor::Center, ccp(45.f, -5.f));
     correctDateLabel->setID("result-correct-date-label"_spr);
 
@@ -189,7 +189,7 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
         "bigFont.fnt"
     );
     guessedDateLabel->setScale(0.35f);
-    guessedDateLabel->setColor({ 0, 100, 255 });
+    guessedDateLabel->setColor({ 96, 171, 239 });
     m_mainLayer->addChildAtPosition(guessedDateLabel, Anchor::Center, ccp(125.f, -5.f));
     guessedDateLabel->setID("result-guessed-date-label"_spr);
 
@@ -208,14 +208,23 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     totalLabel->setScale(0.7f);
     m_mainLayer->addChildAtPosition(totalLabel, Anchor::Center, ccp(85.f, -50.f));
     totalLabel->setID("result-total-label"_spr);
-    
-    auto idLabel = CCLabelBMFont::create(
+
+    auto levelID = gm.realLevel->m_levelID.value();
+    auto IDLabel = CCLabelBMFont::create(
         fmt::format("ID: {}", gm.realLevel->m_levelID.value()).c_str(),
         "goldFont.fnt"
     );
-    idLabel->setScale(0.5f);
-    m_mainLayer->addChildAtPosition(idLabel, Anchor::Center, ccp(-85.f, -60.f));
-    idLabel->setID("result-id-label"_spr);
+    auto IDBtn = CCMenuItemExt::createSpriteExtra(IDLabel, [levelID](CCMenuItemSpriteExtra* sender) {
+        auto str = fmt::format("{}", levelID);
+        clipboard::write(str);
+        Notification::create("Copied to clipboard", NotificationIcon::None)->show();
+    });
+    auto IDMenu = CCMenu::create();
+    IDMenu->addChild(IDBtn);
+    IDMenu->setScale(0.5f);
+    IDMenu->setAnchorPoint({ 0.f, 0.f });
+    m_mainLayer->addChildAtPosition(IDMenu, Anchor::Center, ccp(-85.f, -60.f));
+    IDMenu->setID("result-id-menu"_spr);
 
     auto nextRoundSpr = ButtonSprite::create("Continue", "goldFont.fnt", "GJ_button_01.png", 0.9);
     nextRoundSpr->setScale(0.8f);
