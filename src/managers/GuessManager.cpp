@@ -396,9 +396,52 @@ void GuessManager::levelDownloadFinished(GJGameLevel* level) {
     CCDirector::sharedDirector()->pushScene(CCTransitionFade::create(.5f, scene));
 }
 
+
 void GuessManager::levelDownloadFailed(int x) {
     log::warn("could not fetch level, code {}", x);
 
     if (m_loadingOverlay) m_loadingOverlay->removeMe();
     m_loadingOverlay = nullptr;
+}
+
+int GuessManager::getLevelDifficulty(GJGameLevel* level) {
+    if (level->m_autoLevel) return -1;
+    auto diff = level->m_difficulty;
+
+    if (level->m_ratingsSum != 0)
+        diff = static_cast<GJDifficulty>(level->m_ratingsSum / 10);
+
+    if (level->m_demon > 0) {
+        switch (level->m_demonDifficulty) {
+            case 3: return 7;
+            case 4: return 8;
+            case 5: return 9;
+            case 6: return 10;
+            default: return 6;
+        }
+    }
+
+    switch (diff) {
+        case GJDifficulty::Easy: return 1;
+        case GJDifficulty::Normal: return 2;
+        case GJDifficulty::Hard: return 3;
+        case GJDifficulty::Harder: return 4;
+        case GJDifficulty::Insane: return 5;
+        case GJDifficulty::Demon: return 6;
+        default: return 0;
+    }
+}
+
+GJFeatureState GuessManager::getFeaturedState(GJGameLevel* level) {
+    if (level->m_isEpic == 3) {
+        return GJFeatureState::Mythic;
+    } else if (level->m_isEpic == 2) {
+        return GJFeatureState::Legendary;
+    } else if (level->m_isEpic == 1) {
+        return GJFeatureState::Epic;
+    } else if (level->m_featured > 0) {
+        return GJFeatureState::Featured;
+    } else {
+        return GJFeatureState::None;
+    }
 }
