@@ -1,9 +1,51 @@
 #include "ResultsPopup.hpp"
 #include <managers/GuessManager.hpp>
 
+static int getLevelDifficulty(GJGameLevel* level) {
+    if (level->m_autoLevel) return -1;
+    auto diff = level->m_difficulty;
+
+    if (level->m_ratingsSum != 0)
+        diff = static_cast<GJDifficulty>(level->m_ratingsSum / 10);
+
+    if (level->m_demon > 0) {
+        switch (level->m_demonDifficulty) {
+            case 3: return 7;
+            case 4: return 8;
+            case 5: return 9;
+            case 6: return 10;
+            default: return 6;
+        }
+    }
+
+    switch (diff) {
+        case GJDifficulty::Easy: return 1;
+        case GJDifficulty::Normal: return 2;
+        case GJDifficulty::Hard: return 3;
+        case GJDifficulty::Harder: return 4;
+        case GJDifficulty::Insane: return 5;
+        case GJDifficulty::Demon: return 6;
+        default: return 0;
+    }
+}
+
+static GJFeatureState getFeaturedState(GJGameLevel* level) {
+    if (level->m_isEpic == 3) {
+        return GJFeatureState::Mythic;
+    } else if (level->m_isEpic == 2) {
+        return GJFeatureState::Legendary;
+    } else if (level->m_isEpic == 1) {
+        return GJFeatureState::Epic;
+    } else if (level->m_featured > 0) {
+        return GJFeatureState::Featured;
+    } else {
+        return GJFeatureState::None;
+    }
+}
+
 ResultsPopup* ResultsPopup::create(int score, LevelDate correctDate, LevelDate date) {
     auto ret = new ResultsPopup;
-    if (ret->initAnchored(360.f, 145.f, score, correctDate, date)) {
+    if (ret->initAnchored(360.f, 235.f, score, correctDate, date)) {
         ret->autorelease();
         return ret;
     }
@@ -15,6 +57,8 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     this->setTitle("Results");
 
     auto& gm = GuessManager::get();
+    auto director = CCDirector::sharedDirector();
+    auto size = director->getWinSize();
 
     m_closeBtn->removeFromParent();
 
@@ -40,9 +84,138 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
         }
     }
 
-    auto textArea = TextArea::create(fmt::format("You got a score of <cl>{}</c>!\nThe correct answer was <cl>{}</c>.\nYou guessed <cl>{}</c>.\nYour total score is <cl>{}</c>.", score, correctDateFormatted, submittedDate, GuessManager::get().totalScore), "bigFont.fnt", 1.f, 800.f, { 0.5f, 1.f }, 36, false);
-    textArea->setScale(0.43f);
-    m_mainLayer->addChildAtPosition(textArea, Anchor::Center, ccp(0.f, 14.f));
+    auto resultBg = cocos2d::extension::CCScale9Sprite::create("square02b_001.png", { 0.0f, 0.0f, 80.0f, 80.0f });
+    resultBg->setContentSize({340,148});
+    resultBg->setColor({123,60,31});
+    m_mainLayer->addChildAtPosition(resultBg, Anchor::Center, ccp(0.f, 0.f));
+    resultBg->setID("result-info-background"_spr);
+
+    auto separator = CCSprite::createWithSpriteFrameName("floorLine_001.png");
+    separator->setScaleX(0.3f);
+    separator->setScaleY(1);
+    separator->setOpacity(100);
+    separator->setRotation(90);
+    separator->setID("result-separator"_spr);
+    m_mainLayer->addChildAtPosition(separator, Anchor::Center, ccp(0.f, 0.f));
+
+    auto nameLabel = CCLabelBMFont::create(
+        gm.realLevel->m_levelName.c_str(),
+        "bigFont.fnt"
+    );
+    nameLabel->limitLabelWidth(160.f, 0.6f, 0.0f);
+    m_mainLayer->addChildAtPosition(nameLabel, Anchor::Center, ccp(-85.f, 60.f));
+    nameLabel->setID("result-name-label"_spr);
+
+    auto authorLabel = CCLabelBMFont::create(
+        fmt::format("By {}", gm.realLevel->m_creatorName).c_str(),
+        "goldFont.fnt"
+    );
+    authorLabel->limitLabelWidth(160.f, 0.5f, 0.0f);
+    if (gm.realLevel->m_accountID == 0) {
+        authorLabel->setColor({ 90, 255, 255 });
+    }
+    m_mainLayer->addChildAtPosition(authorLabel, Anchor::Center, ccp(-85.f, 40.f));
+    authorLabel->setID("result-author-label"_spr);
+
+    auto difficultySprite = GJDifficultySprite::create(
+        getLevelDifficulty(gm.realLevel),
+        static_cast<GJDifficultyName>(1)
+    );
+    difficultySprite->updateFeatureState(getFeaturedState(gm.realLevel));
+    m_mainLayer->addChildAtPosition(difficultySprite, Anchor::Center, ccp(-85.f, 0.f));
+    difficultySprite->setID("result-difficulty-sprite"_spr);
+
+    auto starsLabel = CCLabelBMFont::create(
+        fmt::format("{}", (gm.realLevel->m_stars).value()).c_str(),
+        "bigFont.fnt"
+    );
+    auto starsIcon = CCSprite::createWithSpriteFrameName(
+        "star_small01_001.png"
+    );
+    starsLabel->setScale(0.4f);
+    starsLabel->setAnchorPoint({ 1.f, 0.5f });
+    m_mainLayer->addChildAtPosition(starsLabel, Anchor::Center, ccp(-85.f, -40.f));
+    m_mainLayer->addChildAtPosition(starsIcon, Anchor::Center, ccp(-78.f, -40.f));
+    starsLabel->setID("result-stars-label"_spr);
+    starsIcon->setID("result-stars-icon"_spr);
+
+    auto yourScorelabel = CCLabelBMFont::create(
+        "Your Score:",
+        "bigFont.fnt"
+    );
+    yourScorelabel->setScale(0.5f);
+    m_mainLayer->addChildAtPosition(yourScorelabel, Anchor::Center, ccp(85.f, 60.f));
+    yourScorelabel->setID("result-your-score-label"_spr);
+
+    auto scoreLabel = CCLabelBMFont::create(
+        fmt::format("{}", score).c_str(),
+        "bigFont.fnt"
+    );
+    float t = std::clamp(score / (gm.options.mode == GameMode::Normal ? 500.f : 600.f), 0.f, 1.f);
+    GLubyte red   = static_cast<GLubyte>((1.f - t) * 255);
+    GLubyte green = static_cast<GLubyte>(t * 255);
+    scoreLabel->setScale(0.6f);
+    scoreLabel->setColor({ red, green, 0 });
+    m_mainLayer->addChildAtPosition(scoreLabel, Anchor::Center, ccp(85.f, 40.f));
+    scoreLabel->setID("result-score-label"_spr);
+
+    auto correctLabel = CCLabelBMFont::create(
+        "Correct:",
+        "bigFont.fnt"
+    );
+    correctLabel->setScale(0.4f);
+    m_mainLayer->addChildAtPosition(correctLabel, Anchor::Center, ccp(45.f, 10.f));
+    correctLabel->setID("result-correct-label"_spr);
+
+    auto guessedLabel = CCLabelBMFont::create(
+        "Guessed:",
+        "bigFont.fnt"
+    );
+    guessedLabel->setScale(0.4f);
+    m_mainLayer->addChildAtPosition(guessedLabel, Anchor::Center, ccp(125.f, 10.f));
+    guessedLabel->setID("result-guessed-label"_spr);
+
+    auto correctDateLabel = CCLabelBMFont::create(
+        correctDateFormatted.c_str(),
+        "bigFont.fnt"
+    );
+    correctDateLabel->setScale(0.35f);
+    correctDateLabel->setColor({ 0, 100, 255 });
+    m_mainLayer->addChildAtPosition(correctDateLabel, Anchor::Center, ccp(45.f, -5.f));
+    correctDateLabel->setID("result-correct-date-label"_spr);
+
+    auto guessedDateLabel = CCLabelBMFont::create(
+        submittedDate.c_str(),
+        "bigFont.fnt"
+    );
+    guessedDateLabel->setScale(0.35f);
+    guessedDateLabel->setColor({ 0, 100, 255 });
+    m_mainLayer->addChildAtPosition(guessedDateLabel, Anchor::Center, ccp(125.f, -5.f));
+    guessedDateLabel->setID("result-guessed-date-label"_spr);
+
+    auto totalScoreLabel = CCLabelBMFont::create(
+        "Total Score:",
+        "bigFont.fnt"
+    );
+    m_mainLayer->addChildAtPosition(totalScoreLabel, Anchor::Center, ccp(85.f, -30.f));
+    totalScoreLabel->limitLabelWidth(160.f, 0.5f, 0.0f);
+    totalScoreLabel->setID("result-total-score-label"_spr);
+
+    auto totalLabel = CCLabelBMFont::create(
+        fmt::format("{}", gm.totalScore).c_str(),
+        "goldFont.fnt"
+    );
+    totalLabel->setScale(0.7f);
+    m_mainLayer->addChildAtPosition(totalLabel, Anchor::Center, ccp(85.f, -50.f));
+    totalLabel->setID("result-total-label"_spr);
+    
+    auto idLabel = CCLabelBMFont::create(
+        fmt::format("ID: {}", gm.realLevel->m_levelID.value()).c_str(),
+        "goldFont.fnt"
+    );
+    idLabel->setScale(0.5f);
+    m_mainLayer->addChildAtPosition(idLabel, Anchor::Center, ccp(-85.f, -60.f));
+    idLabel->setID("result-id-label"_spr);
 
     auto nextRoundSpr = ButtonSprite::create("Continue", "goldFont.fnt", "GJ_button_01.png", 0.9);
     nextRoundSpr->setScale(0.8f);

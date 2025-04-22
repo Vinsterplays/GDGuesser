@@ -153,7 +153,7 @@ bool LevelLayer::init() {
     nameLabel->limitLabelWidth(300.f, 0.8f, 0.0f);
     authorLabel->limitLabelWidth(300.f, 0.8f, 0.0f);
 
-    if (gm.realLevel->m_accountID == 0) {
+    if (gm.realLevel->m_accountID == 0 || gm.options.mode != GameMode::Normal) {
         authorLabel->setColor({ 90, 255, 255 });
     }
 
