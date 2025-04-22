@@ -1,10 +1,7 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/CreatorLayer.hpp>
-
 #include <managers/GuessManager.hpp>
-
-#include "ui/StartPopup.hpp"
-#include "ui/layers/LevelLayer.hpp"
+#include <ui/StartPopup.hpp>
 
 using namespace geode::prelude;
 
@@ -15,10 +12,13 @@ class $modify(MyCL, CreatorLayer) {
     bool init() {
         if (!CreatorLayer::init()) return false;
         
-        auto btn = CCMenuItemExt::createSpriteExtra(CircleButtonSprite::create(CCLabelBMFont::create("GDG", "goldFont.fnt")), [this](CCObject*) {
+        auto btnSpr = CCSprite::create("btn.png"_spr);
+        auto btn = CCMenuItemExt::createSpriteExtra(CircleButtonSprite::create(btnSpr), [this](CCObject*) {
             StartPopup::create()->show();
         });
-        
+        btnSpr->setScale(0.075f);
+        btn->setID("start-btn"_spr);
+
         if (auto menu = this->getChildByIDRecursive("bottom-right-menu")) {
             menu->addChild(btn);
             menu->updateLayout();
@@ -30,6 +30,7 @@ class $modify(MyCL, CreatorLayer) {
 
 #ifdef DEBUG_ENABLED
 #include <Geode/modify/MenuLayer.hpp>
+#include "ui/layers/LevelLayer.hpp"
 class $modify(MenuLayer) {
     bool init() {
         if (!MenuLayer::init())
