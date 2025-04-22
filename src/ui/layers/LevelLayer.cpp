@@ -3,35 +3,6 @@
 #include <managers/GuessManager.hpp>
 #include <ui/GuessPopup.hpp>
 
-// thanks Vinster!
-static int getLevelDifficulty(GJGameLevel* level) {
-    if (level->m_autoLevel) return -1;
-    auto diff = level->m_difficulty;
-
-    if (level->m_ratingsSum != 0)
-        diff = static_cast<GJDifficulty>(level->m_ratingsSum / 10);
-
-    if (level->m_demon > 0) {
-        switch (level->m_demonDifficulty) {
-            case 3: return 7;
-            case 4: return 8;
-            case 5: return 9;
-            case 6: return 10;
-            default: return 6;
-        }
-    }
-
-    switch (diff) {
-        case GJDifficulty::Easy: return 1;
-        case GJDifficulty::Normal: return 2;
-        case GJDifficulty::Hard: return 3;
-        case GJDifficulty::Harder: return 4;
-        case GJDifficulty::Insane: return 5;
-        case GJDifficulty::Demon: return 6;
-        default: return 0;
-    }
-}
-
 LevelLayer* LevelLayer::create() {
     auto ret = new LevelLayer();
 
@@ -123,7 +94,7 @@ bool LevelLayer::init() {
 
     // thanks once again Vinster!!
     auto difficultySprite = GJDifficultySprite::create(
-        gm.options.mode == GameMode::Normal ? getLevelDifficulty(gm.realLevel) : 0,
+        gm.options.mode == GameMode::Normal ? gm.getLevelDifficulty(gm.realLevel) : 0,
         static_cast<GJDifficultyName>(1)
     );
 
