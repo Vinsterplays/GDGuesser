@@ -337,6 +337,10 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
                 });
             }
 
+            std::sort(entries.begin(), entries.end(), [](LeaderboardEntry b, LeaderboardEntry c) {
+                return b.total_score / b.accuracy  > c.total_score / c.accuracy;
+            });
+
             callback(entries);
         } else if (e->isCancelled()) {
             log::error("request cancelled");
