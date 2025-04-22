@@ -1,48 +1,6 @@
 #include "ResultsPopup.hpp"
 #include <managers/GuessManager.hpp>
 
-static int getLevelDifficulty(GJGameLevel* level) {
-    if (level->m_autoLevel) return -1;
-    auto diff = level->m_difficulty;
-
-    if (level->m_ratingsSum != 0)
-        diff = static_cast<GJDifficulty>(level->m_ratingsSum / 10);
-
-    if (level->m_demon > 0) {
-        switch (level->m_demonDifficulty) {
-            case 3: return 7;
-            case 4: return 8;
-            case 5: return 9;
-            case 6: return 10;
-            default: return 6;
-        }
-    }
-
-    switch (diff) {
-        case GJDifficulty::Easy: return 1;
-        case GJDifficulty::Normal: return 2;
-        case GJDifficulty::Hard: return 3;
-        case GJDifficulty::Harder: return 4;
-        case GJDifficulty::Insane: return 5;
-        case GJDifficulty::Demon: return 6;
-        default: return 0;
-    }
-}
-
-static GJFeatureState getFeaturedState(GJGameLevel* level) {
-    if (level->m_isEpic == 3) {
-        return GJFeatureState::Mythic;
-    } else if (level->m_isEpic == 2) {
-        return GJFeatureState::Legendary;
-    } else if (level->m_isEpic == 1) {
-        return GJFeatureState::Epic;
-    } else if (level->m_featured > 0) {
-        return GJFeatureState::Featured;
-    } else {
-        return GJFeatureState::None;
-    }
-}
-
 ResultsPopup* ResultsPopup::create(int score, LevelDate correctDate, LevelDate date) {
     auto ret = new ResultsPopup;
     if (ret->initAnchored(360.f, 235.f, score, correctDate, date)) {
@@ -88,14 +46,14 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     resultBg->setContentSize({340,148});
     resultBg->setColor({123,60,31});
     m_mainLayer->addChildAtPosition(resultBg, Anchor::Center, ccp(0.f, 0.f));
-    resultBg->setID("result-info-background"_spr);
+    resultBg->setID("result-info-background");
 
     auto separator = CCSprite::createWithSpriteFrameName("floorLine_001.png");
     separator->setScaleX(0.3f);
     separator->setScaleY(1);
     separator->setOpacity(100);
     separator->setRotation(90);
-    separator->setID("result-separator"_spr);
+    separator->setID("result-separator");
     m_mainLayer->addChildAtPosition(separator, Anchor::Center, ccp(0.f, 0.f));
 
     auto nameLabel = CCLabelBMFont::create(
@@ -104,7 +62,7 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     );
     nameLabel->limitLabelWidth(160.f, 0.6f, 0.0f);
     m_mainLayer->addChildAtPosition(nameLabel, Anchor::Center, ccp(-85.f, 60.f));
-    nameLabel->setID("result-name-label"_spr);
+    nameLabel->setID("result-name-label");
 
     auto authorLabel = CCLabelBMFont::create(
         fmt::format("By {}", gm.realLevel->m_creatorName).c_str(),
@@ -115,15 +73,15 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
         authorLabel->setColor({ 90, 255, 255 });
     }
     m_mainLayer->addChildAtPosition(authorLabel, Anchor::Center, ccp(-85.f, 40.f));
-    authorLabel->setID("result-author-label"_spr);
+    authorLabel->setID("result-author-label");
 
     auto difficultySprite = GJDifficultySprite::create(
-        getLevelDifficulty(gm.realLevel),
+        gm.getLevelDifficulty(gm.realLevel),
         static_cast<GJDifficultyName>(1)
     );
-    difficultySprite->updateFeatureState(getFeaturedState(gm.realLevel));
+    difficultySprite->updateFeatureState(gm.getFeaturedState(gm.realLevel));
     m_mainLayer->addChildAtPosition(difficultySprite, Anchor::Center, ccp(-85.f, 0.f));
-    difficultySprite->setID("result-difficulty-sprite"_spr);
+    difficultySprite->setID("result-difficulty-sprite");
 
     auto starsLabel = CCLabelBMFont::create(
         fmt::format("{}", (gm.realLevel->m_stars).value()).c_str(),
@@ -136,8 +94,8 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     starsLabel->setAnchorPoint({ 1.f, 0.5f });
     m_mainLayer->addChildAtPosition(starsLabel, Anchor::Center, ccp(-85.f, gm.realLevel->m_demon > 0 ? -40.f : -30.f));
     m_mainLayer->addChildAtPosition(starsIcon, Anchor::Center, ccp(-78.f, gm.realLevel->m_demon > 0 ? -40.f : -30.f));
-    starsLabel->setID("result-stars-label"_spr);
-    starsIcon->setID("result-stars-icon"_spr);
+    starsLabel->setID("result-stars-label");
+    starsIcon->setID("result-stars-icon");
 
     auto yourScorelabel = CCLabelBMFont::create(
         "Your Score:",
@@ -145,7 +103,7 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     );
     yourScorelabel->setScale(0.5f);
     m_mainLayer->addChildAtPosition(yourScorelabel, Anchor::Center, ccp(85.f, 60.f));
-    yourScorelabel->setID("result-your-score-label"_spr);
+    yourScorelabel->setID("result-your-score-label");
 
     auto scoreLabel = CCLabelBMFont::create(
         fmt::format("{}", score).c_str(),
@@ -157,7 +115,7 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     scoreLabel->setScale(0.6f);
     scoreLabel->setColor({ red, green, 0 });
     m_mainLayer->addChildAtPosition(scoreLabel, Anchor::Center, ccp(85.f, 40.f));
-    scoreLabel->setID("result-score-label"_spr);
+    scoreLabel->setID("result-score-label");
 
     auto correctLabel = CCLabelBMFont::create(
         "Correct:",
@@ -165,7 +123,7 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     );
     correctLabel->setScale(0.4f);
     m_mainLayer->addChildAtPosition(correctLabel, Anchor::Center, ccp(45.f, 10.f));
-    correctLabel->setID("result-correct-label"_spr);
+    correctLabel->setID("result-correct-label");
 
     auto guessedLabel = CCLabelBMFont::create(
         "Guessed:",
@@ -173,7 +131,7 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     );
     guessedLabel->setScale(0.4f);
     m_mainLayer->addChildAtPosition(guessedLabel, Anchor::Center, ccp(125.f, 10.f));
-    guessedLabel->setID("result-guessed-label"_spr);
+    guessedLabel->setID("result-guessed-label");
 
     auto correctDateLabel = CCLabelBMFont::create(
         correctDateFormatted.c_str(),
@@ -182,7 +140,7 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     correctDateLabel->setScale(0.35f);
     correctDateLabel->setColor({ 96, 171, 239 });
     m_mainLayer->addChildAtPosition(correctDateLabel, Anchor::Center, ccp(45.f, -5.f));
-    correctDateLabel->setID("result-correct-date-label"_spr);
+    correctDateLabel->setID("result-correct-date-label");
 
     auto guessedDateLabel = CCLabelBMFont::create(
         submittedDate.c_str(),
@@ -191,7 +149,7 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     guessedDateLabel->setScale(0.35f);
     guessedDateLabel->setColor({ 96, 171, 239 });
     m_mainLayer->addChildAtPosition(guessedDateLabel, Anchor::Center, ccp(125.f, -5.f));
-    guessedDateLabel->setID("result-guessed-date-label"_spr);
+    guessedDateLabel->setID("result-guessed-date-label");
 
     auto totalScoreLabel = CCLabelBMFont::create(
         "Total Score:",
@@ -199,7 +157,7 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     );
     m_mainLayer->addChildAtPosition(totalScoreLabel, Anchor::Center, ccp(85.f, -30.f));
     totalScoreLabel->limitLabelWidth(160.f, 0.5f, 0.0f);
-    totalScoreLabel->setID("result-total-score-label"_spr);
+    totalScoreLabel->setID("result-total-score-label");
 
     auto totalLabel = CCLabelBMFont::create(
         fmt::format("{}", gm.totalScore).c_str(),
@@ -207,7 +165,7 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     );
     totalLabel->setScale(0.7f);
     m_mainLayer->addChildAtPosition(totalLabel, Anchor::Center, ccp(85.f, -50.f));
-    totalLabel->setID("result-total-label"_spr);
+    totalLabel->setID("result-total-label");
 
     auto levelID = gm.realLevel->m_levelID.value();
     auto IDLabel = CCLabelBMFont::create(
@@ -224,7 +182,7 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     IDMenu->setScale(0.5f);
     IDMenu->setAnchorPoint({ 0.f, 0.f });
     m_mainLayer->addChildAtPosition(IDMenu, Anchor::Center, ccp(-85.f, -60.f));
-    IDMenu->setID("result-id-menu"_spr);
+    IDMenu->setID("result-id-menu");
 
     auto nextRoundSpr = ButtonSprite::create("Continue", "goldFont.fnt", "GJ_button_01.png", 0.9);
     nextRoundSpr->setScale(0.8f);
