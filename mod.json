@@ -8,7 +8,7 @@
 	},
 	"id": "techstudent10.gdguesser",
 	"name": "GDGuesser",
-	"version": "v1.0.0-beta.1",
+	"version": "v1.0.0-beta.2",
 	"developer": "TechStudent10",
 	"description": "Guess the date of Geometry Dash levels!",
 	"resources": {
@@ -32,11 +32,7 @@
 			"description": "What date format to use, added this to cater to others worldwide (mostly Americans...)"
 		}
 	},
-	"dependencies": [
-	        {
-	            "id": "geode.node-ids",
-	            "version": "v1.20.1",
-	            "importance": "required"
-	        }
-	]
+	"dependencies": {
+		"geode.node-ids": "v1.20.1"
+	}
 }
