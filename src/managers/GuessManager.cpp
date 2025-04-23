@@ -3,6 +3,9 @@
 
 #include <argon/argon.hpp>
 
+#include <Geode/cocos/support/base64.h>
+#include <Geode/cocos/support/zip_support/ZipUtils.h>
+
 // stolen from https://github.com/GlobedGD/globed2/blob/main/src/util/gd.cpp#L11
 void reorderDownloadedLevel(GJGameLevel* level) {
     // thank you cvolton :D
@@ -389,6 +392,8 @@ void GuessManager::levelDownloadFinished(GJGameLevel* level) {
     this->currentLevel->copyLevelInfo(level);
     this->currentLevel->m_levelName = "???????";
     this->currentLevel->m_creatorName = "GDGuesser";
+    auto levelDecoded = decodeBase64(this->currentLevel->m_levelString);
+    this->currentLevel->m_levelString = encodeBase64(levelDecoded + "1,3854,2,-1000,3,1000,135,1;");
     // auto layer = LevelInfoLayer::create(level, false);
     auto layer = LevelLayer::create();
     auto scene = CCScene::create();
@@ -445,3 +450,12 @@ GJFeatureState GuessManager::getFeaturedState(GJGameLevel* level) {
         return GJFeatureState::None;
     }
 }
+
+std::string GuessManager::decodeBase64(const std::string& input) {
+    return ZipUtils::decompressString(input, false, 0);
+}
+
+std::string GuessManager::encodeBase64(const std::string& input) {
+    return ZipUtils::compressString(input, false, 0);
+}
+

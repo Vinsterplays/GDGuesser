@@ -103,6 +103,8 @@ public:
     DateFormat getDateFormat();
     int getLevelDifficulty(GJGameLevel* level);
     GJFeatureState getFeaturedState(GJGameLevel* level);
+    std::string decodeBase64(const std::string& input);
+    std::string encodeBase64(const std::string& input);
 
     static GuessManager& get() {
         static GuessManager instance;
