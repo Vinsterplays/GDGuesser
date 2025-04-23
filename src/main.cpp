@@ -6,14 +6,23 @@
 using namespace geode::prelude;
 
 class $modify(MyCL, CreatorLayer) {
-    struct Fields {
-    };
-    
     bool init() {
         if (!CreatorLayer::init()) return false;
         
         auto btnSpr = CCSprite::create("btn.png"_spr);
         auto btn = CCMenuItemExt::createSpriteExtra(CircleButtonSprite::create(btnSpr), [this](CCObject*) {
+            if (!Mod::get()->getSavedValue<bool>("seen-lb-reset-notice", false)) {
+                geode::createQuickPopup(
+                    "Notice",
+                    "Due to issues with <cr>cheating</c> and <cy>changes in leaderboard sorting</c>, the leaderboard <cl>has been reset.</c>\nFor information on the new leaderboard system, <cg>click the info button on the leaderboard</c>.",
+                    "OK", nullptr,
+                    [](auto, bool) {
+                        StartPopup::create()->show();
+                    }
+                );
+                Mod::get()->setSavedValue("seen-lb-reset-notice", true);
+                return;
+            }
             StartPopup::create()->show();
         });
         btnSpr->setScale(0.075f);

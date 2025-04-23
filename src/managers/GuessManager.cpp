@@ -328,16 +328,24 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
             std::vector<LeaderboardEntry> entries = {};
 
             for (auto lbEntry : leaderboardJson) {
+                #define ENTRY_VALUE(key, return_type, func, default) \
+                    .key = static_cast<return_type>(lbEntry[#key].func().unwrapOr(default))
+                
                 entries.push_back({
-                    .account_id = static_cast<int>(lbEntry["account_id"].asInt().unwrapOr(0)),
-                    .username = lbEntry["username"].asString().unwrapOr("Player"),
-                    .total_score = static_cast<int>(lbEntry["total_score"].asInt().unwrapOr(0)),
-                    .icon_id = static_cast<int>(lbEntry["icon_id"].asInt().unwrapOr(0)),
-                    .color1 = static_cast<int>(lbEntry["color1"].asInt().unwrapOr(0)),
-                    .color2 = static_cast<int>(lbEntry["color2"].asInt().unwrapOr(0)),
-                    .color3 = static_cast<int>(lbEntry["color3"].asInt().unwrapOr(0)),
-                    .accuracy = static_cast<float>(lbEntry["accuracy"].asDouble().unwrapOr(0.f)),
+                    ENTRY_VALUE(account_id, int, asInt, 0),
+                    ENTRY_VALUE(username, std::string, asString, "Player"),
+                    ENTRY_VALUE(total_score, int, asInt, 0),
+                    ENTRY_VALUE(icon_id, int, asInt, 0),
+                    ENTRY_VALUE(color1, int, asInt, 0),
+                    ENTRY_VALUE(color2, int, asInt, 0),
+                    ENTRY_VALUE(color3, int, asInt, 0),
+                    ENTRY_VALUE(accuracy, float, asDouble, 0.f),
+                    ENTRY_VALUE(max_score, int, asInt, 0),
+                    ENTRY_VALUE(total_normal_guesses, int, asInt, 0),
+                    ENTRY_VALUE(total_hardcore_guesses, int, asInt, 0),
                 });
+
+                #undef ENTRY_VALUE
             }
 
             callback(entries);

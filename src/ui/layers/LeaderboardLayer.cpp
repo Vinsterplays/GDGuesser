@@ -22,7 +22,7 @@ protected:
         scoreLabel->setPosition({ width - 25.f, CELL_HEIGHT - 15.f});
         scoreLabel->setAnchorPoint({ 1.f, 0.5f });
         
-        auto accuracyLabel = CCLabelBMFont::create(fmt::format("{:.1f}%", lbEntry.accuracy).c_str(), "bigFont.fnt");
+        auto accuracyLabel = CCLabelBMFont::create(fmt::format("{:.1f}%", (float)lbEntry.total_score / (float)lbEntry.max_score * 100.f).c_str(), "bigFont.fnt");
         accuracyLabel->setScale(.6f);
         accuracyLabel->setAlignment(cocos2d::kCCTextAlignmentRight);
         
@@ -135,7 +135,6 @@ bool GDGLeaderboardLayer::init() {
             listItems->addObject(cell);
         }
 
-        // auto clv = CustomListView::create(listItems, BoomListType::User, 200.f, listWidth);
         auto listNode = ListView::create(listItems, UserCell::CELL_HEIGHT, listWidth);
         auto listLayer = GJListLayer::create(listNode, "", {191, 114, 62, 255}, listWidth, listNode->getContentHeight(), 1);
         listLayer->ignoreAnchorPointForPosition(false);
@@ -143,16 +142,18 @@ bool GDGLeaderboardLayer::init() {
         listLayer->setPosition({ size.width / 2, size.height / 2 - 20.f });
 
         spinner->removeFromParent();
-
-        // auto listBorder = ListBorders::create();
-        // listBorder->addChild(listNode);
-        // listBorder->setSpriteFrames("GJ_table_bottom_001.png", "GJ_table_side_001.png");
-
         this->addChild(listLayer);
     });
 
     auto lbSpr = CCSprite::create("leaderboards.png"_spr);
     lbSpr->setPosition({ size.width / 2.f, size.height / 2 + 130.f });
+
+    auto infoBtn = InfoAlertButton::create("Info", "The way the leaderboard is sorted is via <cy>accuracy</c>. Your accuracy is your total score divided by your overall <cl>maximum score</c> (the score you would have if you got max points on all questions).", 1.f);
+    auto topRightMenu = CCMenu::create();
+    topRightMenu->addChild(infoBtn);
+    topRightMenu->setPosition({ size.width - 20.f, size.height - 20.f });
+
+    this->addChild(topRightMenu);
 
     this->addChild(lbSpr);
 
