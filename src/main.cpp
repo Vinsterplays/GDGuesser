@@ -37,7 +37,7 @@ class $modify(MyCL, CreatorLayer) {
     }
 };
 
-#ifdef DEBUG_ENABLED
+#ifdef DEBUG_BUILD
 #include <Geode/modify/MenuLayer.hpp>
 #include "ui/layers/LevelLayer.hpp"
 class $modify(MenuLayer) {
@@ -45,7 +45,7 @@ class $modify(MenuLayer) {
         if (!MenuLayer::init())
             return false;
     
-        auto btn = CCMenuItemExt::createSpriteExtraWithFrameName("GJ_playBtn2_001.png", 1.f, [this](auto sender) {
+        auto btn = CCMenuItemExt::createSpriteExtraWithFrameName("GJ_playBtn2_001.png", 0.6f, [this](auto sender) {
             auto& gm = GuessManager::get();
             auto level = GameLevelManager::get()->getMainLevel(1, false);
             gm.realLevel = level;
@@ -64,6 +64,7 @@ class $modify(MenuLayer) {
 
         btn->setPosition(0.f, 100.f);
         menu->addChild(btn);
+        menu->setZOrder(100);
 
         this->addChild(menu);
 
