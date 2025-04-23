@@ -84,9 +84,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: nightly
-          name: 'CR Nightly Release'
+          name: 'GDGuesser Nightly Release'
           body: |
-            Creation Rotation nightly release for ${{ github.sha }}. Do not expect a stable experience from a build here.
+            GDGuesser nightly release for ${{ github.sha }}. Do not expect a stable experience from a build here.
           files: |
             ./build-output/*.geode
             ./build-output/*.pdb

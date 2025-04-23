@@ -21,6 +21,9 @@ struct LeaderboardEntry {
     int color2;
     int color3;
     float accuracy;
+    int max_score;
+    int total_normal_guesses;
+    int total_hardcore_guesses;
 };
 
 enum class DateFormat {

@@ -120,31 +120,36 @@ void GuessManager::startNewGame(GameOptions options) {
     auto doTheThing = [this, options, getAcc]() {
         m_loadingOverlay = LoadingOverlayLayer::create();
         m_loadingOverlay->addToScene();
-
+        
         m_listener.bind([this, options, getAcc] (web::WebTask::Event* e) {
             if (web::WebResponse* res = e->getValue()) {
                 if (res->code() != 200) {
                     log::error("error starting new round; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string"));
                     return;
                 }
-
+                
                 auto jsonRes = res->json();
                 if (jsonRes.isErr()) {
                     log::error("error getting json: {}", jsonRes.err());
                     return;
                 }
-
+                
                 auto json = jsonRes.unwrap();
-
+                
                 auto levelIdRes = json["level"].asInt();
                 if (levelIdRes.isErr()) {
                     log::error("error getting level id: {}", levelIdRes.err());
                     return;
                 }
 
+                if (this->realLevel && Mod::get()->getSettingValue<bool>("dont-save-levels")) {
+                    GameLevelManager::get()->deleteLevel(this->realLevel);
+                    this->realLevel = nullptr;
+                }
+                
                 auto levelId = levelIdRes.unwrap();
                 this->options = options;
-
+                
                 auto* glm = GameLevelManager::get();
                 glm->m_levelManagerDelegate = this;
                 glm->getOnlineLevels(GJSearchObject::create(SearchType::Search, std::to_string(levelId)));
@@ -261,18 +266,27 @@ void GuessManager::submitGuess(LevelDate date, std::function<void(int score, Lev
 
 void GuessManager::endGame() {
     auto doTheThing = [this]() {
+
+        m_loadingOverlay = LoadingOverlayLayer::create();
+        m_loadingOverlay->addToScene();
+
+        
         m_listener.bind([this] (web::WebTask::Event* e) {
             if (web::WebResponse* res = e->getValue()) {
                 if (res->code() != 200 && res->code() != 404) {
                     log::error("error ending game; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string"));
                     return;
                 }
-
+                
+                if (this->realLevel && Mod::get()->getSettingValue<bool>("dont-save-levels")) {
+                    GameLevelManager::get()->deleteLevel(this->realLevel);
+                    this->realLevel = nullptr;
+                }
                 currentLevel = nullptr;
                 
                 if (m_loadingOverlay) m_loadingOverlay->removeMe();
                 m_loadingOverlay = nullptr;
-
+                
                 auto layer = CreatorLayer::create();
                 auto scene = CCScene::create();
                 scene->addChild(layer);
@@ -294,9 +308,6 @@ void GuessManager::endGame() {
         "No", "Yes",
         [this, doTheThing](auto, bool btn2) {
             if (!btn2) return;
-
-            m_loadingOverlay = LoadingOverlayLayer::create();
-            m_loadingOverlay->addToScene();
 
             doTheThing();
         }
@@ -328,16 +339,24 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
             std::vector<LeaderboardEntry> entries = {};
 
             for (auto lbEntry : leaderboardJson) {
+                #define ENTRY_VALUE(key, return_type, func, default) \
+                    .key = static_cast<return_type>(lbEntry[#key].func().unwrapOr(default))
+                
                 entries.push_back({
-                    .account_id = static_cast<int>(lbEntry["account_id"].asInt().unwrapOr(0)),
-                    .username = lbEntry["username"].asString().unwrapOr("Player"),
-                    .total_score = static_cast<int>(lbEntry["total_score"].asInt().unwrapOr(0)),
-                    .icon_id = static_cast<int>(lbEntry["icon_id"].asInt().unwrapOr(0)),
-                    .color1 = static_cast<int>(lbEntry["color1"].asInt().unwrapOr(0)),
-                    .color2 = static_cast<int>(lbEntry["color2"].asInt().unwrapOr(0)),
-                    .color3 = static_cast<int>(lbEntry["color3"].asInt().unwrapOr(0)),
-                    .accuracy = static_cast<float>(lbEntry["accuracy"].asDouble().unwrapOr(0.f)),
+                    ENTRY_VALUE(account_id, int, asInt, 0),
+                    ENTRY_VALUE(username, std::string, asString, "Player"),
+                    ENTRY_VALUE(total_score, int, asInt, 0),
+                    ENTRY_VALUE(icon_id, int, asInt, 0),
+                    ENTRY_VALUE(color1, int, asInt, 0),
+                    ENTRY_VALUE(color2, int, asInt, 0),
+                    ENTRY_VALUE(color3, int, asInt, 0),
+                    ENTRY_VALUE(accuracy, float, asDouble, 0.f),
+                    ENTRY_VALUE(max_score, int, asInt, 0),
+                    ENTRY_VALUE(total_normal_guesses, int, asInt, 0),
+                    ENTRY_VALUE(total_hardcore_guesses, int, asInt, 0),
                 });
+
+                #undef ENTRY_VALUE
             }
 
             callback(entries);

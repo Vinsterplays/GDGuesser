@@ -168,8 +168,8 @@ router.post("/account", async (req, res) => {
     const db = await openDB()
     
     await db.run(`
-        INSERT INTO scores (account_id, username, icon_id, color1, color2, color3, total_score, accuracy)
-        VALUES (?, ?, ?, ?, ?, ?, 0, 0)    
+        INSERT INTO scores (account_id, username, icon_id, color1, color2, color3, total_score, accuracy, max_score, total_normal_guesses, total_hardcore_guesses)
+        VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0)    
         ON CONFLICT (account_id) DO
         UPDATE SET username = ?, icon_id = ?, color1 = ?, color2 = ?, color3 = ?
         `, 
@@ -254,13 +254,46 @@ router.post("/guess/:date", async (req, res) => {
     const score = scoreResult[0]
     const accuracy = scoreResult[1]
 
+    const gameMode = games[account_id].options.mode
+    const max_score = gameMode === GameMode.Normal ? 500 : 600;
+
     const db = await openDB()
     await db.run(`
-        INSERT INTO scores (account_id, username, total_score, icon_id, accuracy)
-        VALUES (?, ?, ?, ?, ?)    
+        INSERT INTO scores (
+            account_id,
+            username,
+            total_score,
+            icon_id,
+            accuracy,
+            max_score,
+            total_normal_guesses,
+            total_hardcore_guesses
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (account_id) DO
-        UPDATE SET username = ?, total_score = total_score + ?, accuracy = (accuracy + ?) / 2
-    `, account_id, data["username"], score, 1, accuracy, data["username"], score, accuracy)
+        UPDATE SET
+            username = ?,
+            total_score = total_score + ?,
+            accuracy = (accuracy + ?) / 2,
+            max_score = max_score + ?,
+            total_normal_guesses = total_normal_guesses + ?,
+            total_hardcore_guesses = total_hardcore_guesses + ?;
+    `,
+        account_id,
+        data["username"],
+        score,
+        1,
+        accuracy,
+        max_score,
+        gameMode === GameMode.Normal ? 1 : 0,
+        gameMode === GameMode.Hardcore ? 1 : 0,
+        data["username"],
+        score,
+        accuracy,
+        max_score,
+        gameMode === GameMode.Normal ? 1 : 0,
+        gameMode === GameMode.Hardcore ? 1 : 0,   
+    )
 
     delete games[account_id]
 
@@ -314,7 +347,7 @@ router.get("/leaderboard", async (req, res) => {
     const db = await openDB()
     const results = await db.all(`
         SELECT * FROM scores
-        ORDER BY accuracy DESC
+        ORDER BY CAST(total_score AS REAL) / max_score DESC
         LIMIT 100
     `)
     res.json(results)

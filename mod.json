@@ -8,7 +8,7 @@
 	},
 	"id": "techstudent10.gdguesser",
 	"name": "GDGuesser",
-	"version": "v1.0.0-beta.1",
+	"version": "v1.0.0-beta.2",
 	"developer": "TechStudent10",
 	"description": "Guess the date of Geometry Dash levels!",
 	"resources": {
@@ -30,13 +30,15 @@
 			"default": "DD/MM/YYYY",
 			"one-of": ["DD/MM/YYYY", "MM/DD/YYYY", "YYYY/MM/DD"],
 			"description": "What date format to use, added this to cater to others worldwide (mostly Americans...)"
+		},
+		"dont-save-levels": {
+			"type": "bool",
+			"name": "Don't Save Levels",
+			"default": false,
+			"description": "Whether to save levels from your GDGuesser runs."
 		}
 	},
-	"dependencies": [
-	        {
-	            "id": "geode.node-ids",
-	            "version": "v1.20.1",
-	            "importance": "required"
-	        }
-	]
+	"dependencies": {
+		"geode.node-ids": "v1.20.1"
+	}
 }
