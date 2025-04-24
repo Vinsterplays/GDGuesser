@@ -67,61 +67,19 @@ DateFormat GuessManager::getDateFormat() {
 
 void GuessManager::setupRequest(web::WebRequest& req, matjson::Value body) {
     req.header("Authorization", m_daToken);
-    body.set("account_id", GJAccountManager::get()->m_accountID);
     req.bodyJSON(body);
 }
 
 void GuessManager::startNewGame(GameOptions options) {
-    // get total score
-    auto getAcc = [this]() {
-        // EventListener<web::WebTask> listener;
-        m_listener.bind([this] (web::WebTask::Event* e) {
-            if (web::WebResponse* res = e->getValue()) {
-                if (res->code() != 200) {
-                    log::debug("received non-200 code: {}", res->code());
-                    return;
-                }
-
-                auto jsonRes = res->json();
-                if (jsonRes.isErr()) {
-                    log::error("error getting account json: {}", jsonRes.err());
-                    return;
-                }
-
-                auto json = jsonRes.unwrap();
-
-                auto scoreResult = json["total_score"].asInt();
-                if (scoreResult.isErr()) {
-                    log::error("unable to get score");
-                    return;
-                }
-                auto score = scoreResult.unwrap();
-                totalScore = score;
-            } else if (e->isCancelled()) {
-                if (m_loadingOverlay) m_loadingOverlay->removeMe();
-                log::error("request cancelled");
-            }
-        });
-
-        auto req = web::WebRequest();
-        auto gm = GameManager::get();
-        setupRequest(req, matjson::makeObject({
-            {"icon_id", gm->getPlayerFrame()},
-            {"color1", gm->m_playerColor.value()},
-            {"color2", gm->m_playerColor2.value()},
-            {"color3", gm->m_playerGlow ?
-                gm->m_playerGlowColor.value() :
-                -1
-            },
-        }));
-        m_listener.setFilter(req.post(fmt::format("{}/account", getServerUrl())));
-    };
-
-    auto doTheThing = [this, options, getAcc]() {
+    auto doTheThing = [this, options]() {
         m_loadingOverlay = LoadingOverlayLayer::create();
         m_loadingOverlay->addToScene();
         
-        m_listener.bind([this, options, getAcc] (web::WebTask::Event* e) {
+        m_listener.bind([this, options] (web::WebTask::Event* e) {
+            if (this->currentLevel) {
+                return;
+            }
+
             if (web::WebResponse* res = e->getValue()) {
                 if (res->code() != 200) {
                     log::error("error starting new round; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string"));
@@ -153,7 +111,6 @@ void GuessManager::startNewGame(GameOptions options) {
                 auto* glm = GameLevelManager::get();
                 glm->m_levelManagerDelegate = this;
                 glm->getOnlineLevels(GJSearchObject::create(SearchType::Search, std::to_string(levelId)));
-                getAcc();
             } else if (e->isCancelled()) {
                 if (m_loadingOverlay) m_loadingOverlay->removeMe();
                 log::error("request cancelled");
@@ -164,15 +121,73 @@ void GuessManager::startNewGame(GameOptions options) {
         setupRequest(req, matjson::makeObject({{"options", options}}));
         m_listener.setFilter(req.post(fmt::format("{}/start-new-game", getServerUrl())));
     };
+
+    // get total score
+    auto getAcc = [this, doTheThing](std::string argonToken) {
+        // EventListener<web::WebTask> listener;
+        m_listener.bind([this, doTheThing] (web::WebTask::Event* e) {
+            if (web::WebResponse* res = e->getValue()) {
+                if (res->code() != 200) {
+                    log::debug("received non-200 code: {}, {}", res->code(), res->string().unwrapOr("b"));
+                    return;
+                }
+
+                auto jsonRes = res->json();
+                if (jsonRes.isErr()) {
+                    log::error("error getting account json: {}", jsonRes.err());
+                    return;
+                }
+
+                auto json = jsonRes.unwrap();
+
+                auto scoreResult = json["user"]["total_score"].asInt();
+                if (scoreResult.isErr()) {
+                    log::error("unable to get score");
+                    return;
+                }
+                auto score = scoreResult.unwrap();
+                totalScore = score;
+
+                auto tokenResult = json["token"].asString();
+                if (tokenResult.isErr()) {
+                    log::error("unable to get JWT!!! {}", tokenResult.unwrapErr());
+                    return;
+                }
+
+                auto token = tokenResult.unwrap();
+                m_daToken = token;
+
+                doTheThing();
+            } else if (e->isCancelled()) {
+                if (m_loadingOverlay) m_loadingOverlay->removeMe();
+                log::error("request cancelled");
+            }
+        });
+
+        auto req = web::WebRequest();
+        auto gm = GameManager::get();
+        req.bodyJSON(matjson::makeObject({
+            {"icon_id", gm->getPlayerFrame()},
+            {"color1", gm->m_playerColor.value()},
+            {"color2", gm->m_playerColor2.value()},
+            {"color3", gm->m_playerGlow ?
+                gm->m_playerGlowColor.value() :
+                -1
+            },
+            {"account_id", GJAccountManager::get()->m_accountID}
+        }));
+        req.header("Authorization", argonToken);
+        m_listener.setFilter(req.post(fmt::format("{}/login", getServerUrl())));
+    };
     
-    auto doAuthentication = [this, doTheThing]() {
+    auto doAuthentication = [this, getAcc, doTheThing]() {
         auto notif = Notification::create(
             "Currently authenticating with Argon.\nThis will take 5-10 seconds. Please wait...",
             NotificationIcon::Loading,  
             0.f);
         notif->show();
 
-        auto res = argon::startAuth([this, doTheThing, notif](Result<std::string> res) {
+        auto res = argon::startAuth([this, getAcc, notif](Result<std::string> res) {
             if (!res) {
                 FLAlertLayer::create(
                     "Error",
@@ -182,9 +197,8 @@ void GuessManager::startNewGame(GameOptions options) {
                 notif->hide();
             }
 
-            m_daToken = std::move(res).unwrap();
             notif->hide();
-            doTheThing();
+            getAcc(std::move(res).unwrap());
         }, [](argon::AuthProgress progress) {});
 
         if (!res) {

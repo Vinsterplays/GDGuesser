@@ -8,6 +8,8 @@ import * as path from "node:path"
 import sqlite3 from "sqlite3"
 import { open } from "sqlite"
 
+import * as jwt from "jsonwebtoken"
+
 const router = express()
 const httpServer = createServer(router)
 router.use(express.json());
@@ -37,11 +39,15 @@ const ID_CUTOFFS: {[key: string]: number[]} = {
     "2.2": [97454812, 130000000]
 }
 
+const SECRET_KEY = process.env.SECRET_KEY || ""
+
 const levelIds = (() => {
     const result: {[key: string]: number[]} = {}
+    const start = Date.now()
     Object.keys(ID_CUTOFFS).forEach(update => {
         result[update] = unsortedLevelIds.filter((id) => id >= ID_CUTOFFS[update][0] && id <= ID_CUTOFFS[update][1])
     })
+    console.log(`id cutoffs took ${Date.now() - start}ms`)
     return result
 })()
 
@@ -56,6 +62,11 @@ async function openDB() {
     const db = await openDB();
     db.migrate()
 })()
+
+type UserToken = {
+    username: string
+    account_id: number
+}
 
 type LevelDate = {
     year: number
@@ -124,9 +135,22 @@ const getRandomLevelId = () => getRandomElement(levelIds[getRandomElement(Object
 //         str
 // }
 
-async function checkToken(token: string, account_id: number) {
-    const req = await fetch(`https://argon.globed.dev/v1/validation/check_strong?authtoken=${token}&account_id=${account_id}`)
-    return req 
+async function checkToken(token: string): Promise<{
+    user: UserToken | undefined,
+    error: any
+}> {
+    try {
+        const req = jwt.verify(token, SECRET_KEY) as UserToken
+        return {
+            user: req,
+            error: ""
+        }
+    } catch (error) {
+        return {
+            user: undefined,
+            error
+        }
+    }
 }
 
 async function getUser(account_id: string | number) {
@@ -148,10 +172,10 @@ router.get("/", (req, res) => {
     res.send("we are up and running! go get guessing!")
 })
 
-router.post("/account", async (req, res) => {
+router.post("/login", async (req, res) => {
     const token = req.headers.authorization || ""
     const account_id = req.body["account_id"]
-    const daResp = await checkToken(token, account_id)
+    const daResp = await fetch(`https://argon.globed.dev/v1/validation/check_strong?authtoken=${token}&account_id=${account_id}`)
     
     if (daResp.status !== 200) {
         res.status(401).send(daResp.statusText)
@@ -165,6 +189,7 @@ router.post("/account", async (req, res) => {
         return
     }
 
+    
     const db = await openDB()
     
     await db.run(`
@@ -179,27 +204,30 @@ router.post("/account", async (req, res) => {
         req.body["icon_id"], req.body["color1"], req.body["color2"], req.body["color3"]
     )
 
-    res.status(200).json(await getUser(account_id))
+    const tokenInfo: UserToken = {
+        account_id: account_id,
+        username: data["username"]
+    }
+    const jwtToken = jwt.sign(tokenInfo, SECRET_KEY)
+
+    res.status(200).json({
+        user: await getUser(account_id),
+        token: jwtToken
+    })
 })
 
 router.post("/start-new-game", async (req, res) => {
     const token = req.headers.authorization || "";
-    const account_id = req.body["account_id"]
-    const daResp = await checkToken(token, account_id)
-
-    if (daResp.status !== 200) {
-        res.status(401).send(daResp.statusText)
-        return
-    }
-
-    const data = await daResp.json()
+    const data = await checkToken(token)
     
-    if (!data["valid_weak"]) {
-        res.status(401).send(`Invalid token: ${data["cause"]}`)
+    if (!data.user) {
+        res.status(401).send(`Invalid token: ${data.error}`)
         return
     }
 
-    if (Object.keys(games).includes(account_id)) {
+    const account_id = data.user.account_id
+
+    if (Object.keys(games).includes(account_id.toString())) {
         res.status(400).send("game already in progress")
         return
     }
@@ -221,22 +249,16 @@ router.post("/start-new-game", async (req, res) => {
 
 router.post("/guess/:date", async (req, res) => {
     const token = req.headers.authorization || ""
-    const account_id = req.body["account_id"]
-    const daResp = await checkToken(token, account_id)
-
-    if (daResp.status !== 200) {
-        res.status(401).send(daResp.statusText)
-        return
-    }
-
-    const data = await daResp.json()
+    const data = await checkToken(token)
     
-    if (!data["valid_weak"]) {
-        res.status(401).send(`Invalid token: ${data["cause"]}`)
+    if (!data.user) {
+        res.status(401).send(`Invalid token: ${data.error}`)
         return
     }
 
-    if (!Object.keys(games).includes(String(account_id))) {
+    const account_id = data.user.account_id
+
+    if (!Object.keys(games).includes(account_id.toString())) {
         res.status(404).send("game does not exist. did you mean to call /start-new-game?")
         return
     }
@@ -280,14 +302,14 @@ router.post("/guess/:date", async (req, res) => {
             total_hardcore_guesses = total_hardcore_guesses + ?;
     `,
         account_id,
-        data["username"],
+        data.user.username,
         score,
         1,
         accuracy,
         max_score,
         gameMode === GameMode.Normal ? 1 : 0,
         gameMode === GameMode.Hardcore ? 1 : 0,
-        data["username"],
+        data.user.username,
         score,
         accuracy,
         max_score,
@@ -305,22 +327,16 @@ router.post("/guess/:date", async (req, res) => {
 
 router.post("/endGame", async (req, res) => {
     const token = req.headers.authorization || ""
-    const account_id = req.body["account_id"]
-    const daResp = await checkToken(token, account_id)
-
-    if (daResp.status !== 200) {
-        res.status(401).send(daResp.statusText)
-        return
-    }
-
-    const data = await daResp.json()
+    const data = await checkToken(token)
     
-    if (!data["valid_weak"]) {
-        res.status(401).send(`Invalid token: ${data["cause"]}`)
+    if (!data.user) {
+        res.status(401).send(`Invalid token: ${data.error}`)
         return
     }
 
-    if (!Object.keys(games).includes(String(account_id))) {
+    const account_id = data.user.account_id
+
+    if (!Object.keys(games).includes(account_id.toString())) {
         res.status(404).send("game does not exist")
         return
     }
@@ -347,7 +363,7 @@ router.get("/leaderboard", async (req, res) => {
     const db = await openDB()
     const results = await db.all(`
         SELECT * FROM scores
-        ORDER BY CAST(total_score AS REAL) / max_score DESC
+        ORDER BY (total_score * total_score) * 1.0 / max_score DESC
         LIMIT 100
     `)
     res.json(results)
