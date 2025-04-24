@@ -1,3 +1,6 @@
+# 1.0.0-beta.6
+- Continue button hotfix
+
 # 1.0.0-beta.5
 - Temp. remove exit penalty
 
