@@ -359,6 +359,8 @@ void GuessManager::applyPenalty(std::function<void()> callback) {
         loadingOverlay->addToScene();
     }
 
+    updateStatusAndLoading(TaskStatus::ApplyPenalty);
+
     m_listener.bind([this, callback] (web::WebTask::Event* e) {
         if (web::WebResponse* res = e->getValue()) {
             if (res->code() != 200 && res->code() != 404) {
