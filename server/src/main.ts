@@ -168,6 +168,48 @@ async function getUser(account_id: string | number) {
     return response
 }
 
+async function submitScore(mode: GameMode, user: UserToken, score: number, accuracy: number) {
+    const max_score = mode === GameMode.Normal ? 500 : 600;
+
+    const db = await openDB()
+    await db.run(`
+        INSERT INTO scores (
+            account_id,
+            username,
+            total_score,
+            icon_id,
+            accuracy,
+            max_score,
+            total_normal_guesses,
+            total_hardcore_guesses
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (account_id) DO
+        UPDATE SET
+            username = ?,
+            total_score = total_score + ?,
+            accuracy = (accuracy + ?) / 2,
+            max_score = max_score + ?,
+            total_normal_guesses = total_normal_guesses + ?,
+            total_hardcore_guesses = total_hardcore_guesses + ?;
+    `,
+        user.account_id,
+        user.username,
+        score,
+        1,
+        accuracy,
+        max_score,
+        mode === GameMode.Normal ? 1 : 0,
+        mode === GameMode.Hardcore ? 1 : 0,
+        user.username,
+        score,
+        accuracy,
+        max_score,
+        mode === GameMode.Normal ? 1 : 0,
+        mode === GameMode.Hardcore ? 1 : 0,   
+    )
+}
+
 router.get("/", (req, res) => {
     res.send("we are up and running! go get guessing!")
 })
@@ -274,45 +316,8 @@ router.post("/guess/:date", async (req, res) => {
     const accuracy = scoreResult[1]
 
     const gameMode = games[account_id].options.mode
-    const max_score = gameMode === GameMode.Normal ? 500 : 600;
 
-    const db = await openDB()
-    await db.run(`
-        INSERT INTO scores (
-            account_id,
-            username,
-            total_score,
-            icon_id,
-            accuracy,
-            max_score,
-            total_normal_guesses,
-            total_hardcore_guesses
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT (account_id) DO
-        UPDATE SET
-            username = ?,
-            total_score = total_score + ?,
-            accuracy = (accuracy + ?) / 2,
-            max_score = max_score + ?,
-            total_normal_guesses = total_normal_guesses + ?,
-            total_hardcore_guesses = total_hardcore_guesses + ?;
-    `,
-        account_id,
-        data.user.username,
-        score,
-        1,
-        accuracy,
-        max_score,
-        gameMode === GameMode.Normal ? 1 : 0,
-        gameMode === GameMode.Hardcore ? 1 : 0,
-        data.user.username,
-        score,
-        accuracy,
-        max_score,
-        gameMode === GameMode.Normal ? 1 : 0,
-        gameMode === GameMode.Hardcore ? 1 : 0,   
-    )
+    submitScore(gameMode, data.user, score, accuracy)
 
     delete games[account_id]
 
@@ -338,50 +343,12 @@ router.post("/penalty", async (req, res) => {
         return
     }
 
-    const levelId = games[account_id].currentLevelId
     const gameMode = games[account_id].options.mode
-    const max_score = gameMode === GameMode.Normal ? 500 : 600;
 
     const score = 0
     const accuracy = 0
 
-    const db = await openDB()
-    await db.run(`
-        INSERT INTO scores (
-            account_id,
-            username,
-            total_score,
-            icon_id,
-            accuracy,
-            max_score,
-            total_normal_guesses,
-            total_hardcore_guesses
-        )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (account_id) DO
-            UPDATE SET
-                username = ?,
-                total_score = total_score + ?,
-                accuracy = (accuracy + ?) / 2,
-                max_score = max_score + ?,
-                total_normal_guesses = total_normal_guesses + ?,
-                total_hardcore_guesses = total_hardcore_guesses + ?;
-    `,
-        account_id,
-        data.user.username,
-        score,
-        1,
-        accuracy,
-        max_score,
-        gameMode === GameMode.Normal ? 1 : 0,
-        gameMode === GameMode.Hardcore ? 1 : 0,
-        data.user.username,
-        score,
-        accuracy,
-        max_score,
-        gameMode === GameMode.Normal ? 1 : 0,
-        gameMode === GameMode.Hardcore ? 1 : 0,
-    )
+    submitScore(gameMode, data.user, score, accuracy)
 
     delete games[account_id]
 
