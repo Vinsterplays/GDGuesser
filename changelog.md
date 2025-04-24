@@ -1,3 +1,6 @@
+# 1.0.0-beta.4
+- Crash hotfix
+
 # 1.0.0-beta.3
 - New penalty system (thanks Vinster!)
 - Loading messages (thanks Capeling!)
