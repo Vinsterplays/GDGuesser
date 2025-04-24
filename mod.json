@@ -40,5 +40,8 @@
 	},
 	"dependencies": {
 		"geode.node-ids": "v1.20.1"
+	},
+	"links": {
+		"community": "https://discord.gg/Bt5HkUSFTj"
 	}
 }
