@@ -88,7 +88,7 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
         "bigFont.fnt"
     );
     auto starsIcon = CCSprite::createWithSpriteFrameName(
-        "star_small01_001.png"
+        gm.realLevel->m_levelLength == 5  ? "moon_small01_001.png" : "star_small01_001.png"
     );
     starsLabel->setScale(0.4f);
     starsLabel->setAnchorPoint({ 1.f, 0.5f });
@@ -195,7 +195,7 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     endGameSpr->setScale(0.8f);
     auto endGameBtn = CCMenuItemExt::createSpriteExtra(endGameSpr, [](CCObject*) {
         auto& gm = GuessManager::get();
-        gm.endGame();
+        gm.endGame(false);
     });
     
     auto nextRoundMenu = CCMenu::create();
