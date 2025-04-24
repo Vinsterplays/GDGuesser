@@ -286,6 +286,8 @@ void GuessManager::submitGuess(LevelDate date, std::function<void(int score, Lev
                 .month = static_cast<int>(json["correctDate"]["month"].asInt().unwrapOr(0)),
                 .day = static_cast<int>(json["correctDate"]["day"].asInt().unwrapOr(0)),
             }, date);
+            this->currentLevel = nullptr;
+            this->realLevel = nullptr;
         } else if (e->isCancelled()) {
             safeRemoveLoadingLayer();
             log::error("request cancelled");
