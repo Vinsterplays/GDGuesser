@@ -1,3 +1,6 @@
+# 1.0.0-beta.5
+- Temp. remove exit penalty
+
 # 1.0.0-beta.4
 - Crash hotfix
 
