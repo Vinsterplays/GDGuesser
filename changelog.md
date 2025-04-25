@@ -1,3 +1,8 @@
+# 1.0.0-beta.7
+- Re-add exit penalty
+- Add version selection
+- Better error handling
+
 # 1.0.0-beta.6
 - Continue button hotfix
 
