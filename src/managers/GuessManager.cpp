@@ -75,6 +75,15 @@ void GuessManager::setupRequest(web::WebRequest& req, matjson::Value body) {
     req.bodyJSON(body);
 }
 
+void GuessManager::showError(std::string error) {
+    log::error("{}", error);
+    FLAlertLayer::create(
+        "GDGuesser Error",
+        error,
+        "OK"
+    )->show();
+}
+
 void GuessManager::startNewGame(GameOptions options) {
     auto doTheThing = [this, options]() {
         safeAddLoadingLayer();
@@ -86,13 +95,13 @@ void GuessManager::startNewGame(GameOptions options) {
 
             if (web::WebResponse* res = e->getValue()) {
                 if (res->code() != 200) {
-                    log::error("error starting new round; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string"));
+                    showError(fmt::format("error starting new round; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string")));
                     return;
                 }
                 
                 auto jsonRes = res->json();
                 if (jsonRes.isErr()) {
-                    log::error("error getting json: {}", jsonRes.err());
+                    showError(fmt::format("error getting json: {}", jsonRes.unwrapErr()));
                     return;
                 }
                 
@@ -100,7 +109,7 @@ void GuessManager::startNewGame(GameOptions options) {
                 
                 auto levelIdRes = json["level"].asInt();
                 if (levelIdRes.isErr()) {
-                    log::error("error getting level id: {}", levelIdRes.err());
+                    showError(fmt::format("error getting level id: {}", levelIdRes.unwrapErr()));
                     return;
                 }
 
@@ -135,7 +144,7 @@ void GuessManager::startNewGame(GameOptions options) {
                 }
             } else if (e->isCancelled()) {
                 safeRemoveLoadingLayer();
-                log::error("request cancelled");
+                showError("request cancelled");
             }
         });
 
@@ -156,7 +165,7 @@ void GuessManager::startNewGame(GameOptions options) {
 
                 auto jsonRes = res->json();
                 if (jsonRes.isErr()) {
-                    log::error("error getting account json: {}", jsonRes.err());
+                    showError(fmt::format("error getting account json: {}", jsonRes.unwrapErr()));
                     return;
                 }
 
@@ -164,7 +173,7 @@ void GuessManager::startNewGame(GameOptions options) {
 
                 auto scoreResult = json["user"]["total_score"].asInt();
                 if (scoreResult.isErr()) {
-                    log::error("unable to get score");
+                    showError(fmt::format("unable to get score: {}", scoreResult.unwrapErr()));
                     return;
                 }
                 auto score = scoreResult.unwrap();
@@ -172,7 +181,7 @@ void GuessManager::startNewGame(GameOptions options) {
 
                 auto tokenResult = json["token"].asString();
                 if (tokenResult.isErr()) {
-                    log::error("unable to get JWT!!! {}", tokenResult.unwrapErr());
+                    showError(fmt::format("unable to get JWT!!! {}", tokenResult.unwrapErr()));
                     return;
                 }
 
@@ -182,7 +191,7 @@ void GuessManager::startNewGame(GameOptions options) {
                 doTheThing();
             } else if (e->isCancelled()) {
                 safeRemoveLoadingLayer();
-                log::error("request cancelled");
+                showError("request cancelled");
             }
         });
 
@@ -208,22 +217,14 @@ void GuessManager::startNewGame(GameOptions options) {
         updateStatusAndLoading(TaskStatus::Authenticate);
         auto res = argon::startAuth([this, getAcc](Result<std::string> res) {
             if (!res) {
-                FLAlertLayer::create(
-                    "Error",
-                    fmt::format("Argon authentication error: {}", res.unwrapErr()),
-                    "OK"
-                )->show();
+                showError(fmt::format("Argon authentication error: {}", res.unwrapErr()));
             }
 
             getAcc(std::move(res).unwrap());
         }, [](argon::AuthProgress progress) {});
 
         if (!res) {
-            FLAlertLayer::create(
-                "Error",
-                fmt::format("Argon authentication error: {}", res.unwrapErr()),
-                "OK"
-            )->show();
+            showError(fmt::format("Argon authentication error: {}", res.unwrapErr()));
         }
     };
 
@@ -256,13 +257,13 @@ void GuessManager::submitGuess(LevelDate date, std::function<void(int score, Lev
     m_listener.bind([this, callback, date] (web::WebTask::Event* e) {
         if (web::WebResponse* res = e->getValue()) {
             if (res->code() != 200) {
-                log::error("error starting submitting guess; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string"));
+                showError(fmt::format("error starting submitting guess; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string")));
                 return;
             }
 
             auto jsonRes = res->json();
             if (jsonRes.isErr()) {
-                log::error("error getting json: {}", jsonRes.err());
+                showError(fmt::format("error getting json: {}", jsonRes.unwrapErr()));
                 return;
             }
 
@@ -270,7 +271,7 @@ void GuessManager::submitGuess(LevelDate date, std::function<void(int score, Lev
 
             auto scoreResult = json["score"].asInt();
             if (scoreResult.isErr()) {
-                log::error("unable to get score");
+                showError(fmt::format("unable to get score: {}", scoreResult.unwrapErr()));
                 return;
             }
             auto score = scoreResult.unwrap();
@@ -288,7 +289,7 @@ void GuessManager::submitGuess(LevelDate date, std::function<void(int score, Lev
             this->realLevel = nullptr;
         } else if (e->isCancelled()) {
             safeRemoveLoadingLayer();
-            log::error("request cancelled");
+            showError("request cancelled");
         }
     });
 
@@ -307,7 +308,7 @@ void GuessManager::endGame(bool pendingGuess) {
         m_listener.bind([this] (web::WebTask::Event* e) {
             if (web::WebResponse* res = e->getValue()) {
                 if (res->code() != 200 && res->code() != 404) {
-                    log::error("error ending game; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string"));
+                    showError(fmt::format("error ending game; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string")));
                     return;
                 }
                 
@@ -325,7 +326,7 @@ void GuessManager::endGame(bool pendingGuess) {
                 CCDirector::sharedDirector()->pushScene(CCTransitionFade::create(.5f, scene));
             } else if (e->isCancelled()) {
                 safeRemoveLoadingLayer();
-                log::error("request cancelled");
+                showError("request cancelled");
             }
         });
 
@@ -367,13 +368,13 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
     m_listener.bind([this, callback] (web::WebTask::Event* e) {
         if (web::WebResponse* res = e->getValue()) {
             if (res->code() != 200) {
-                log::error("error getting leaderboards; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string"));
+                showError(fmt::format("error getting leaderboards; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string")));
                 return;
             }
 
             auto jsonRes = res->json();
             if (jsonRes.isErr()) {
-                log::error("error getting json: {}", jsonRes.err());
+                showError(fmt::format("error getting json: {}", jsonRes.unwrapErr()));
                 return;
             }
 
@@ -381,7 +382,7 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
 
             auto lbResult = json.asArray();
             if (lbResult.isErr()) {
-                log::error("unable to get score");
+                showError(fmt::format("unable to get scores: {}", lbResult.unwrapErr()));
                 return;
             }
             auto leaderboardJson = lbResult.unwrap();
@@ -410,7 +411,7 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
 
             callback(entries);
         } else if (e->isCancelled()) {
-            log::error("request cancelled");
+            showError("request cancelled");
         }
     });
 
@@ -442,7 +443,7 @@ void GuessManager::loadLevelsFinished(cocos2d::CCArray* p0, char const* p1, int 
 }
 
 void GuessManager::loadLevelsFailed(char const* p0, int p1) {
-    log::error("unable to load level: {}, {}", p1, p0);
+    showError(fmt::format("unable to load level: {}, {}", p1, p0));
 }
 
 void GuessManager::levelDownloadFinished(GJGameLevel* level) {
@@ -469,7 +470,7 @@ void GuessManager::levelDownloadFinished(GJGameLevel* level) {
 
 
 void GuessManager::levelDownloadFailed(int x) {
-    log::warn("could not fetch level, code {}", x);
+    showError(fmt::format("could not fetch level, code {}", x));
 
     safeRemoveLoadingLayer();
 }
