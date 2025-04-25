@@ -96,16 +96,12 @@ bool StartPopup::setup() {
             auto versionBtn = CCMenuItemExt::createToggler(CCLabelBMFont::create(version_name, "bigFont.fnt"), versionTextOff, [this](CCMenuItemToggler* toggler) { \
                 if (!toggler->isOn()) { \
                     if (std::find(options.versions.begin(), options.versions.end(), version_name) == options.versions.end()) { \
-                        log::info("adding {} to the list!", version_name); \
                         options.versions.push_back(version_name); \
-                        log::info("added {} to the list!", version_name); \
                     } \
                 } else { \
                     auto searchResult = std::find(options.versions.begin(), options.versions.end(), version_name); \
                     if (searchResult != options.versions.end()) { \
-                        log::info("removing {} from the list!", version_name); \
                         options.versions.erase(searchResult); \
-                        log::info("removed {} from the list!", version_name); \
                     } \
                 } \
             }); \
