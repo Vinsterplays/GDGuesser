@@ -11,6 +11,13 @@ ResultsPopup* ResultsPopup::create(int score, LevelDate correctDate, LevelDate d
     return nullptr;
 }
 
+static float getMaxScore(GameMode mode) {
+    switch (mode) {
+        case GameMode::Normal: return 500.f; break;
+        case GameMode::Hardcore: return 600.f; break;
+        case GameMode::Extreme: return 750.f; break;
+    }
+};
 bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
     this->setTitle("Results");
 
@@ -109,7 +116,7 @@ bool ResultsPopup::setup(int score, LevelDate correctDate, LevelDate date) {
         fmt::format("{}", score).c_str(),
         "bigFont.fnt"
     );
-    float t = std::clamp(score / (gm.options.mode == GameMode::Normal ? 500.f : 600.f), 0.f, 1.f);
+    float t = std::clamp(score / (getMaxScore(gm.options.mode)), 0.f, 1.f);
     GLubyte red   = static_cast<GLubyte>((1.f - t) * 255);
     GLubyte green = static_cast<GLubyte>(t * 255);
     scoreLabel->setScale(0.6f);

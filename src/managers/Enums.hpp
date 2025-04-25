@@ -8,7 +8,8 @@ enum class DateFormat {
 
 enum class GameMode {
     Normal,
-    Hardcore
+    Hardcore,
+    Extreme
 };
 
 enum class TaskStatus {

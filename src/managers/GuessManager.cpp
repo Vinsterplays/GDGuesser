@@ -404,6 +404,7 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
                     ENTRY_VALUE(max_score, int, asInt, 0),
                     ENTRY_VALUE(total_normal_guesses, int, asInt, 0),
                     ENTRY_VALUE(total_hardcore_guesses, int, asInt, 0),
+                    ENTRY_VALUE(total_extreme_guesses, int, asInt, 0),
                 });
 
                 #undef ENTRY_VALUE

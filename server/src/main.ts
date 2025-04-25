@@ -76,7 +76,8 @@ type LevelDate = {
 
 enum GameMode {
     Normal,
-    Hardcore
+    Hardcore,
+    Extreme
 }
 
 type GameOptions = {
@@ -108,7 +109,12 @@ function stringToLvlDate(str: string): LevelDate {
 // returns the score and their accuracy
 
 function calcScore(guess: LevelDate, correct: LevelDate, options: GameOptions): number[] {
-    const limit = options.mode === GameMode.Normal ? 500 : 600;
+    let limit;
+    switch (options.mode) {
+        case GameMode.Normal: limit = 500; break
+        case GameMode.Hardcore: limit = 600; break
+        case GameMode.Extreme: limit = 750
+    }
 
     const guessDate = new Date(guess.year, guess.month - 1, guess.day)
     const correctDate = new Date(correct.year, correct.month - 1, correct.day)
@@ -127,7 +133,11 @@ function getRandomElement<T>(arr: Array<T>) {
     return arr[Math.floor((Math.random() * arr.length) % arr.length)]
 }
 
-const getRandomLevelId = (allowedVersions: string[]) => {
+const getRandomLevelId = (allowedVersions: string[], mode: GameMode) => {
+    if (mode === GameMode.Extreme) {
+        //version filtering is itentially not meant to work here
+        return getRandomElement(unsortedLevelIds)
+    }
     let versions = Object.keys(ID_CUTOFFS)
     if (allowedVersions.length !== 0) {
         versions = versions.filter((id) => allowedVersions.includes(id))
@@ -176,7 +186,12 @@ async function getUser(account_id: string | number) {
 }
 
 async function submitScore(mode: GameMode, user: UserToken, score: number, accuracy: number) {
-    const max_score = mode === GameMode.Normal ? 500 : 600;
+    let max_score;
+    switch (mode) {
+        case GameMode.Normal: max_score = 500; break
+        case GameMode.Hardcore: max_score = 600; break
+        case GameMode.Extreme: max_score = 750
+    }
 
     const db = await openDB()
     await db.run(`
@@ -188,9 +203,10 @@ async function submitScore(mode: GameMode, user: UserToken, score: number, accur
             accuracy,
             max_score,
             total_normal_guesses,
-            total_hardcore_guesses
+            total_hardcore_guesses,
+            total_extreme_guesses
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (account_id) DO
         UPDATE SET
             username = ?,
@@ -198,7 +214,8 @@ async function submitScore(mode: GameMode, user: UserToken, score: number, accur
             accuracy = (accuracy + ?) / 2,
             max_score = max_score + ?,
             total_normal_guesses = total_normal_guesses + ?,
-            total_hardcore_guesses = total_hardcore_guesses + ?;
+            total_hardcore_guesses = total_hardcore_guesses + ?,
+            total_extreme_guesses = total_extreme_guesses + ?;
     `,
         user.account_id,
         user.username,
@@ -208,12 +225,14 @@ async function submitScore(mode: GameMode, user: UserToken, score: number, accur
         max_score,
         mode === GameMode.Normal ? 1 : 0,
         mode === GameMode.Hardcore ? 1 : 0,
+        mode === GameMode.Extreme ? 1 : 0,
         user.username,
         score,
         accuracy,
         max_score,
         mode === GameMode.Normal ? 1 : 0,
-        mode === GameMode.Hardcore ? 1 : 0,   
+        mode === GameMode.Hardcore ? 1 : 0,
+        mode === GameMode.Extreme ? 1 : 0, 
     )
 }
 
@@ -257,8 +276,8 @@ router.post("/login", async (req, res) => {
     const db = await openDB()
     
     await db.run(`
-        INSERT INTO scores (account_id, username, icon_id, color1, color2, color3, total_score, accuracy, max_score, total_normal_guesses, total_hardcore_guesses)
-        VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0)    
+        INSERT INTO scores (account_id, username, icon_id, color1, color2, color3, total_score, accuracy, max_score, total_normal_guesses, total_hardcore_guesses, total_extreme_guesses)
+        VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0)    
         ON CONFLICT (account_id) DO
         UPDATE SET username = ?, icon_id = ?, color1 = ?, color2 = ?, color3 = ?
         `, 
@@ -297,7 +316,7 @@ router.post("/start-new-game", async (req, res) => {
     }
 
     const options = req.body["options"] as GameOptions
-    const id = getRandomLevelId(options.versions)
+    const id = getRandomLevelId(options.versions, options.mode)
     games[account_id] = {
         accountId: account_id,
         currentLevelId: id,

@@ -24,6 +24,10 @@ protected:
             startGame(GameMode::Hardcore);
         });
 
+        auto extremeBtn = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Extreme"), [startGame](CCObject*) {
+            startGame(GameMode::Extreme);
+        });
+
         auto menu = CCMenu::create();
         menu->setLayout(
             ColumnLayout::create()
@@ -32,6 +36,7 @@ protected:
 
         menu->addChild(normalBtn);
         menu->addChild(hardBtn);
+        menu->addChild(extremeBtn);
 
         menu->updateLayout();
 
