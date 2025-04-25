@@ -10,7 +10,8 @@ class $modify(MyCL, CreatorLayer) {
         if (!CreatorLayer::init()) return false;
         
         auto btnSpr = CCSprite::create("btn.png"_spr);
-        auto btn = CCMenuItemExt::createSpriteExtra(CircleButtonSprite::create(btnSpr), [this](CCObject*) {
+        btnSpr->setScale(0.1f);
+        auto btn = CCMenuItemExt::createSpriteExtra(btnSpr, [this](CCObject*) {
             if (!Mod::get()->getSavedValue<bool>("seen-lb-reset-notice", false)) {
                 geode::createQuickPopup(
                     "Notice",
@@ -25,7 +26,7 @@ class $modify(MyCL, CreatorLayer) {
             }
             StartPopup::create()->show();
         });
-        btnSpr->setScale(0.075f);
+        // btnSpr->setScale(0.075f);
         btn->setID("start-btn"_spr);
 
         if (auto menu = this->getChildByIDRecursive("bottom-right-menu")) {

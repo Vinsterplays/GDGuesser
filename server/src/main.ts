@@ -80,7 +80,8 @@ enum GameMode {
 }
 
 type GameOptions = {
-    mode: GameMode
+    mode: GameMode,
+    versions: string[]
 }
 
 type Game = {
@@ -106,8 +107,8 @@ function stringToLvlDate(str: string): LevelDate {
 // if they are not, we take off one point for every day off, to a mimimum of 0 points
 // returns the score and their accuracy
 
-function calcScore(guess: LevelDate, correct: LevelDate, mode: GameMode): number[] {
-    const limit = mode === GameMode.Normal ? 500 : 600;
+function calcScore(guess: LevelDate, correct: LevelDate, options: GameOptions): number[] {
+    const limit = options.mode === GameMode.Normal ? 500 : 600;
 
     const guessDate = new Date(guess.year, guess.month - 1, guess.day)
     const correctDate = new Date(correct.year, correct.month - 1, correct.day)
@@ -126,7 +127,13 @@ function getRandomElement<T>(arr: Array<T>) {
     return arr[Math.floor((Math.random() * arr.length) % arr.length)]
 }
 
-const getRandomLevelId = () => getRandomElement(levelIds[getRandomElement(Object.keys(ID_CUTOFFS))])
+const getRandomLevelId = (allowedVersions: string[]) => {
+    let versions = Object.keys(ID_CUTOFFS)
+    if (allowedVersions.length !== 0) {
+        versions = versions.filter((id) => allowedVersions.includes(id))
+    }
+    return getRandomElement(levelIds[getRandomElement(versions)])
+}
 
 // function getDashAuthUrl() {
 //     let str = process.env.DASHAUTH_URL
@@ -274,11 +281,12 @@ router.post("/start-new-game", async (req, res) => {
         submitScore(games[account_id].options.mode, data.user, 0, 0)
     }
 
-    const id = getRandomLevelId()
+    const options = req.body["options"] as GameOptions
+    const id = getRandomLevelId(options.versions)
     games[account_id] = {
         accountId: account_id,
         currentLevelId: id,
-        options: req.body["options"]
+        options: options
     }
 
     res.json({
@@ -315,7 +323,7 @@ router.post("/guess/:date", async (req, res) => {
     )["approx"]["estimation"]
     .split("T")[0]
 
-    const scoreResult = calcScore(stringToLvlDate(date), stringToLvlDate(correctDate), games[account_id].options.mode)
+    const scoreResult = calcScore(stringToLvlDate(date), stringToLvlDate(correctDate), games[account_id].options)
     const score = scoreResult[0]
     const accuracy = scoreResult[1]
 

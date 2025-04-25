@@ -1,17 +1,18 @@
 #include "StartPopup.hpp"
-#include <managers/GuessManager.hpp>
 #include <ui/layers/LeaderboardLayer.hpp>
 #include <ui/layers/LoadingOverlayLayer.hpp>
 
-class DifficultySelectionPopup : public geode::Popup<> {
+class DifficultySelectionPopup : public geode::Popup<GameOptions> {
 protected:
-
-    bool setup() {
+    bool setup(GameOptions options) {
         this->setTitle("Select your difficulty!");
 
-        auto startGame = [this](GameMode mode) {
+        auto startGame = [this, options](GameMode mode) {
             auto& gm = GuessManager::get();
-            gm.startNewGame({ .mode = mode });
+            gm.startNewGame({
+                .mode = mode,
+                .versions = options.versions
+            });
             this->onClose(nullptr);
         };
 
@@ -45,9 +46,9 @@ protected:
         return true;
     }
 public:
-    static DifficultySelectionPopup* create() {
+    static DifficultySelectionPopup* create(GameOptions options) {
         auto ret = new DifficultySelectionPopup;
-        if (ret->initAnchored(280.f, 230.f)) {
+        if (ret->initAnchored(280.f, 230.f, options)) {
             ret->autorelease();
             return ret;
         }
@@ -58,7 +59,7 @@ public:
 
 StartPopup* StartPopup::create() {
     auto ret = new StartPopup;
-    if (ret->initAnchored(300.f, 250.f)) {
+    if (ret->initAnchored(300.f, 200.f)) {
         ret->autorelease();
         return ret;
     }
@@ -69,52 +70,14 @@ StartPopup* StartPopup::create() {
 bool StartPopup::setup() {
     this->setTitle("GDGuesser");
 
-    auto btn = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Start!"), [](CCObject*) {
-        DifficultySelectionPopup::create()->show();
+    auto btn = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Start!"), [this](CCObject*) {
+        DifficultySelectionPopup::create(options)->show();
     });
     auto startMenu = CCMenu::create();
     startMenu->addChild(btn);
-    m_mainLayer->addChildAtPosition(startMenu, Anchor::Center);
+    m_mainLayer->addChildAtPosition(startMenu, Anchor::Center, ccp(0.f, 30.f));
 
-    // CCMenuItemToggler* easyToggler;
-    // CCMenuItemToggler* hardToggler;
-
-    // auto easyOnSprite = CCSprite::createWithSpriteFrameName("diffIcon_01_btn_001.png");
-    // auto easyOffSprite = CCSprite::createWithSpriteFrameName("diffIcon_01_btn_001.png");
-    // easyOffSprite->setOpacity(0.5 * 255);
-
-    // easyToggler = CCMenuItemExt::createToggler(easyOnSprite, easyOffSprite, [this, hardToggler, easyToggler](CCObject*) {
-    //     if (!easyToggler->isOn()) return;
-
-    //     hardToggler->toggle(false);
-    // });
-
-    // easyToggler->toggle(true);
-
-    // auto hardOnSprite = CCSprite::createWithSpriteFrameName("diffIcon_06_btn_001.png");
-    // auto hardOffSprite = CCSprite::createWithSpriteFrameName("diffIcon_06_btn_001.png");
-    // hardOffSprite->setOpacity(0.5 * 255);
-
-    // hardToggler = CCMenuItemExt::createToggler(hardOnSprite, hardOffSprite, [this, hardToggler, easyToggler](CCObject*) {
-    //     if (!hardToggler->isOn()) return;
-
-    //     easyToggler->toggle(false);
-    // });
-
-    // easyToggler->toggle(false);
-
-    // auto diffMenu = CCMenu::create();
-    // diffMenu->setLayout(
-    //     RowLayout::create()
-    // );
-    // diffMenu->addChild(easyToggler);
-    // diffMenu->addChild(hardToggler);
-
-    // diffMenu->updateLayout();
-
-    // m_mainLayer->addChildAtPosition(diffMenu, Anchor::Center, ccp(0.f, -25.f));
-
-    auto lbBtn = CCMenuItemExt::createSpriteExtraWithFrameName("GJ_levelLeaderboardBtn_001.png", 1.f, [](CCObject*) {
+    auto lbBtn = CCMenuItemExt::createSpriteExtraWithFrameName("GJ_levelLeaderboardBtn_001.png", .85f, [](CCObject*) {
         auto layer = GDGLeaderboardLayer::create();
         auto scene = CCScene::create();
         scene->addChild(layer);
@@ -124,5 +87,76 @@ bool StartPopup::setup() {
     lbMenu->addChild(lbBtn);
     m_mainLayer->addChildAtPosition(lbMenu, Anchor::TopRight, ccp(-30.f, -30.f));
 
+    auto versionsMenu = CCMenu::create();
+
+    #define VERSION_BTN(version_name) \
+        { \
+            auto versionTextOff = CCLabelBMFont::create(version_name, "bigFont.fnt"); \
+            versionTextOff->setOpacity(255 * 0.5); \
+            auto versionBtn = CCMenuItemExt::createToggler(CCLabelBMFont::create(version_name, "bigFont.fnt"), versionTextOff, [this](CCMenuItemToggler* toggler) { \
+                if (!toggler->isOn()) { \
+                    if (std::find(options.versions.begin(), options.versions.end(), version_name) == options.versions.end()) { \
+                        log::info("adding {} to the list!", version_name); \
+                        options.versions.push_back(version_name); \
+                        log::info("added {} to the list!", version_name); \
+                    } \
+                } else { \
+                    auto searchResult = std::find(options.versions.begin(), options.versions.end(), version_name); \
+                    if (searchResult != options.versions.end()) { \
+                        log::info("removing {} from the list!", version_name); \
+                        options.versions.erase(searchResult); \
+                        log::info("removed {} from the list!", version_name); \
+                    } \
+                } \
+            }); \
+            versionsMenu->addChild(versionBtn); \
+        }
+
+    VERSION_BTN("1.0")
+    VERSION_BTN("1.1")
+    VERSION_BTN("1.2")
+    VERSION_BTN("1.3")
+    VERSION_BTN("1.4")
+    VERSION_BTN("1.5")
+    VERSION_BTN("1.6")
+    VERSION_BTN("1.7")
+    VERSION_BTN("1.8")
+    VERSION_BTN("1.9")
+    VERSION_BTN("2.0")
+    VERSION_BTN("2.1")
+    VERSION_BTN("2.2")
+
+    #undef VERSION_BTN
+
+    versionsMenu->setLayout(
+        RowLayout::create()
+            ->setGrowCrossAxis(true)
+            ->setGap(8.f)
+    );
+    versionsMenu->setScale(0.5f);
+    versionsMenu->setContentWidth(380.f);
+    versionsMenu->updateLayout();
+
+    auto versionsContainer = CCScale9Sprite::create("square02b_001.png");
+    versionsContainer->setContentSize({
+        275.f,
+        versionsMenu->getContentHeight() - 10.f
+    });
+    versionsContainer->setColor(ccc3(0,0,0));
+    versionsContainer->setOpacity(75);
+
+    versionsMenu->setPosition(
+        {
+            275.f / 2.f,
+            versionsContainer->getContentHeight() / 2.f
+        }
+    );
+    versionsContainer->addChild(versionsMenu);
+
+    m_mainLayer->addChildAtPosition(versionsContainer, Anchor::Bottom, ccp(0.f, 45.f));
+
+    auto versionsText = CCLabelBMFont::create("Versions", "bigFont.fnt");
+    versionsText->setScale(0.5f);
+    m_mainLayer->addChildAtPosition(versionsText, Anchor::Bottom, ccp(0.f, 45.f + versionsContainer->getContentHeight() - 20.f));
     return true;
 }

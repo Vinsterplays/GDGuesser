@@ -29,17 +29,28 @@ struct LeaderboardEntry {
 
 struct GameOptions {
     GameMode mode;
+    std::vector<std::string> versions;
 };
 
 template <>
 struct matjson::Serialize<GameOptions> {
     static geode::Result<GameOptions> fromJson(const matjson::Value& value) {
         GEODE_UNWRAP_INTO(int mode, value["mode"].asInt());
-        return geode::Ok(GameOptions { .mode = static_cast<GameMode>(mode) });
+        GEODE_UNWRAP_INTO(std::vector<Value> versionsArr, value["versions"].asArray());
+
+        std::vector<std::string> versions;
+
+        for (auto versionsVal : versionsArr) {
+            versions.push_back(versionsVal.asString().unwrap());
+            log::info("added {} to hrihg, {}", versionsVal.asString().unwrap(), versions.size());
+        }
+
+        return geode::Ok(GameOptions { .mode = static_cast<GameMode>(mode), .versions = versions });
     }
     static matjson::Value toJson(const GameOptions& options) {
         return matjson::makeObject({
             { "mode", static_cast<int>(options.mode) },
+            { "versions", options.versions }
         });
     }
 };
