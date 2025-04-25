@@ -221,6 +221,21 @@ router.get("/", (req, res) => {
     res.send("we are up and running! go get guessing!")
 })
 
+router.get("/getStats", async (req, res) => {
+    const db = await openDB();
+    res.json({
+        onlineCount: Object.keys(games).length,
+        userCount: (await db.get("SELECT COUNT(*) as userCount from scores"))["userCount"],
+        totalScore: (await db.get("SELECT SUM(total_score) as totalScore FROM scores"))["totalScore"],
+        overallAccuracy:( await db.get(`
+            SELECT
+            SUM(total_score) * 1.0
+            / SUM(max_score) * 100.0 as overallAccuracy
+            FROM scores;
+        `))["overallAccuracy"]
+    })
+})
+
 router.post("/login", async (req, res) => {
     const token = req.headers.authorization || ""
     const account_id = req.body["account_id"]
@@ -292,7 +307,7 @@ router.post("/start-new-game", async (req, res) => {
     res.json({
         level: id,
         game: games[account_id],
-        gameExists: gameExists
+        gameExists
     })
 })
 
