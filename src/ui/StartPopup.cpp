@@ -8,12 +8,33 @@ protected:
         this->setTitle("Select your difficulty!");
 
         auto startGame = [this, options](GameMode mode) {
-            auto& gm = GuessManager::get();
-            gm.startNewGame({
-                .mode = mode,
-                .versions = options.versions
-            });
-            this->onClose(nullptr);
+            // this is so dumb
+            auto startGameFr = [this, options, mode]() {
+                auto& gm = GuessManager::get();
+                gm.startNewGame({
+                    .mode = mode,
+                    .versions = options.versions
+                });
+                this->onClose(nullptr);
+            };
+
+            if (options.versions.size() != 13) {
+                geode::createQuickPopup(
+                    "Warning",
+                    "Your scores will only be submitted if all versions are selected.\nYou can still play and get and get a score, though.",
+                    "Cancel", "Continue",
+                    [this, startGameFr](auto, bool btn2) {
+                        if (!btn2) {
+                            this->onClose(nullptr);
+                            return;
+                        }
+
+                        startGameFr();
+                    }
+                );
+            } else {
+                startGameFr();
+            }
         };
 
         auto normalBtn = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("Normal"), [startGame](CCObject*) {
@@ -105,7 +126,9 @@ bool StartPopup::setup() {
                     } \
                 } \
             }); \
+            versionBtn->toggle(true); \
             versionsMenu->addChild(versionBtn); \
+            options.versions.push_back(version_name); \
         }
 
     VERSION_BTN("1.0")
@@ -153,6 +176,8 @@ bool StartPopup::setup() {
 
     auto versionsText = CCLabelBMFont::create("Versions", "bigFont.fnt");
     versionsText->setScale(0.5f);
+
     m_mainLayer->addChildAtPosition(versionsText, Anchor::Bottom, ccp(0.f, 45.f + versionsContainer->getContentHeight() - 20.f));
+
     return true;
 }

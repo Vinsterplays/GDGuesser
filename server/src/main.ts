@@ -114,13 +114,14 @@ function calcScore(guess: LevelDate, correct: LevelDate, options: GameOptions): 
     const correctDate = new Date(correct.year, correct.month - 1, correct.day)
 
     const diffDays = Math.ceil(Math.abs(guessDate.getTime() - correctDate.getTime()) / (1000 * 3600 * 24))
+    const score = Math.max(limit - diffDays, 0)
+    const accuracy = score / limit * 100
 
     if (diffDays <= 7) {
         return [limit, 100]
     }
 
-    const score = Math.max(limit - diffDays, 0)
-    return [score, score / limit * 100]
+    return [score, accuracy]
 }
 
 function getRandomElement<T>(arr: Array<T>) {
@@ -329,22 +330,27 @@ router.post("/guess/:date", async (req, res) => {
         return
     }
 
+    
     const { date } = req.params
     const levelId = games[account_id].currentLevelId
-
+    
     const correctDate: string = (
     await (
         await fetch(`https://history.geometrydash.eu/api/v1/date/level/${levelId}/`)).json()
     )["approx"]["estimation"]
     .split("T")[0]
-
+    
+    
     const scoreResult = calcScore(stringToLvlDate(date), stringToLvlDate(correctDate), games[account_id].options)
     const score = scoreResult[0]
     const accuracy = scoreResult[1]
-
+    
     const gameMode = games[account_id].options.mode
-
-    submitScore(gameMode, data.user, score, accuracy)
+    
+    // only submit if all versions are selected
+    if (games[account_id].options.versions.length === Object.keys(ID_CUTOFFS).length) {
+        submitScore(gameMode, data.user, score, accuracy)
+    }
 
     delete games[account_id]
 

@@ -275,7 +275,11 @@ void GuessManager::submitGuess(LevelDate date, std::function<void(int score, Lev
                 return;
             }
             auto score = scoreResult.unwrap();
-            totalScore += score;
+
+            // if all versions aren't selected, your total score will not be impacted
+            if (options.versions.size() == 13) {
+                totalScore += score;
+            }
             
             safeRemoveLoadingLayer();
 
