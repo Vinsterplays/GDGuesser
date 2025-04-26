@@ -1,3 +1,10 @@
+# 1.0.0-beta.8
+- Add a Discord button
+- Add a leaderboard reset warning
+- Add server-side statistics
+- Versions are now auto-selected
+- Scores submitted with versions de-selected will now not be submitted
+
 # 1.0.0-beta.7
 - Re-add exit penalty
 - Add version selection
