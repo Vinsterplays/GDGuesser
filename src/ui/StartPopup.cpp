@@ -99,10 +99,27 @@ bool StartPopup::setup() {
     m_mainLayer->addChildAtPosition(startMenu, Anchor::Center, ccp(0.f, 30.f));
 
     auto lbBtn = CCMenuItemExt::createSpriteExtraWithFrameName("GJ_levelLeaderboardBtn_001.png", .85f, [](CCObject*) {
-        auto layer = GDGLeaderboardLayer::create();
-        auto scene = CCScene::create();
-        scene->addChild(layer);
-        CCDirector::sharedDirector()->pushScene(CCTransitionFade::create(.5f, scene));
+        auto openLb = []() {
+            auto layer = GDGLeaderboardLayer::create();
+            auto scene = CCScene::create();
+            scene->addChild(layer);
+            CCDirector::sharedDirector()->pushScene(CCTransitionFade::create(.5f, scene));
+        };
+
+        auto key = "seen-lb-reset-b4-stable-notice";
+        if (!Mod::get()->getSavedValue<bool>(key, false)) {
+            geode::createQuickPopup(
+                "Reset Warning",
+                "GDGuesser is currently in beta, and as a result is undergoing major changes in this time. Due to this, <cy>there will be a leaderboard reset right before GDGuesser exits beta</c>. After this reset, <cl>there will be no more resets to the leaderboard</c>, pending something requires it.",
+                "OK", nullptr,
+                [openLb](auto, bool) {
+                    openLb();
+                }
+            );
+            Mod::get()->setSavedValue(key, true);
+            return;
+        }
+        openLb();
     });
     auto lbMenu = CCMenu::create();
     lbMenu->addChild(lbBtn);
