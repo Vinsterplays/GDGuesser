@@ -121,9 +121,19 @@ bool StartPopup::setup() {
         }
         openLb();
     });
+    auto discordBtn = CCMenuItemExt::createSpriteExtraWithFrameName("gj_discordIcon_001.png", 1.f, [](CCObject*) {
+        CCApplication::get()->openURL(
+            Mod::get()->getMetadata().getLinks().getCommunityURL()->c_str()
+        );
+    });
     auto lbMenu = CCMenu::create();
     lbMenu->addChild(lbBtn);
-    m_mainLayer->addChildAtPosition(lbMenu, Anchor::TopRight, ccp(-30.f, -30.f));
+    lbMenu->addChild(discordBtn);
+    lbMenu->setLayout(
+        ColumnLayout::create()
+            ->setAxisReverse(true)
+    );
+    m_mainLayer->addChildAtPosition(lbMenu, Anchor::TopRight, ccp(-30.f, -45.f));
 
     auto versionsMenu = CCMenu::create();
 
