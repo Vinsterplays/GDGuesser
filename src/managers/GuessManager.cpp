@@ -218,6 +218,7 @@ void GuessManager::startNewGame(GameOptions options) {
         auto res = argon::startAuth([this, getAcc](Result<std::string> res) {
             if (!res || res.isErr()) {
                 showError(fmt::format("Argon authentication error: {}", res.unwrapErr()));
+                return;
             }
 
             getAcc(std::move(res).unwrap());
