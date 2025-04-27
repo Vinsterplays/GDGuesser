@@ -216,7 +216,7 @@ void GuessManager::startNewGame(GameOptions options) {
         
         updateStatusAndLoading(TaskStatus::Authenticate);
         auto res = argon::startAuth([this, getAcc](Result<std::string> res) {
-            if (!res) {
+            if (!res || res.isErr()) {
                 showError(fmt::format("Argon authentication error: {}", res.unwrapErr()));
             }
 
