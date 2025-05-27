@@ -1,3 +1,13 @@
+# 1.0.0-beta.9
+- Bump Argon version
+- New starting popup
+- Changes to the score formula
+- Weighted randomness
+- Fix anticheat applying when it isn't supposed to
+- WIP Account popup
+- Removed Herobrine
+- Several smaller bugfixes
+
 # 1.0.0-beta.8
 - Add a Discord button
 - Add a leaderboard reset warning
