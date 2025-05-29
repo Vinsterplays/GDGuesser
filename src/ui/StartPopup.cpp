@@ -90,7 +90,7 @@ bool StartPopup::setup() {
     m_mainLayer->addChildAtPosition(lbMenu, Anchor::Center, ccp(60.f, 5.f));
 
     auto profileBtn = CCMenuItemExt::createSpriteExtraWithFrameName("GJ_profileButton_001.png", .75f, [](CCObject*) {
-        // AccountPopup::create(GJAccountManager::get()->m_accountID)->show();
+        AccountPopup::create(GJAccountManager::get()->m_accountID)->show();
     });
     auto profileMenu = CCMenu::create();
     profileMenu->addChild(profileBtn);

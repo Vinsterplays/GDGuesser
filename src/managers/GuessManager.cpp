@@ -370,6 +370,33 @@ void GuessManager::safeRemoveLoadingLayer() {
     }
 }
 
+std::vector<LeaderboardEntry> GuessManager::jsonToEntries(std::vector<matjson::Value> json) {
+    std::vector<LeaderboardEntry> entries = {};
+
+    for (auto lbEntry : json) {
+        #define ENTRY_VALUE(key, return_type, func, default) \
+            .key = static_cast<return_type>(lbEntry[#key].func().unwrapOr(default))
+        
+        entries.push_back({
+            ENTRY_VALUE(account_id, int, asInt, 0),
+            ENTRY_VALUE(username, std::string, asString, "Player"),
+            ENTRY_VALUE(total_score, int, asInt, 0),
+            ENTRY_VALUE(icon_id, int, asInt, 0),
+            ENTRY_VALUE(color1, int, asInt, 0),
+            ENTRY_VALUE(color2, int, asInt, 0),
+            ENTRY_VALUE(color3, int, asInt, 0),
+            ENTRY_VALUE(accuracy, float, asDouble, 0.f),
+            ENTRY_VALUE(max_score, int, asInt, 0),
+            ENTRY_VALUE(total_normal_guesses, int, asInt, 0),
+            ENTRY_VALUE(total_hardcore_guesses, int, asInt, 0),
+        });
+
+        #undef ENTRY_VALUE
+    }
+
+    return entries;
+}
+
 void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntry>)> callback) {
     updateStatusAndLoading(TaskStatus::GetLeaderboard);
     m_listener.bind([this, callback] (web::WebTask::Event* e) {
@@ -393,30 +420,7 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
                 return;
             }
             auto leaderboardJson = lbResult.unwrap();
-            std::vector<LeaderboardEntry> entries = {};
-
-            for (auto lbEntry : leaderboardJson) {
-                #define ENTRY_VALUE(key, return_type, func, default) \
-                    .key = static_cast<return_type>(lbEntry[#key].func().unwrapOr(default))
-                
-                entries.push_back({
-                    ENTRY_VALUE(account_id, int, asInt, 0),
-                    ENTRY_VALUE(username, std::string, asString, "Player"),
-                    ENTRY_VALUE(total_score, int, asInt, 0),
-                    ENTRY_VALUE(icon_id, int, asInt, 0),
-                    ENTRY_VALUE(color1, int, asInt, 0),
-                    ENTRY_VALUE(color2, int, asInt, 0),
-                    ENTRY_VALUE(color3, int, asInt, 0),
-                    ENTRY_VALUE(accuracy, float, asDouble, 0.f),
-                    ENTRY_VALUE(max_score, int, asInt, 0),
-                    ENTRY_VALUE(total_normal_guesses, int, asInt, 0),
-                    ENTRY_VALUE(total_hardcore_guesses, int, asInt, 0),
-                });
-
-                #undef ENTRY_VALUE
-            }
-
-            callback(entries);
+            callback(jsonToEntries(leaderboardJson));
         } else if (e->isCancelled()) {
             showError("request cancelled");
         }
@@ -424,6 +428,32 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
 
     auto req = web::WebRequest();
     m_listener.setFilter(req.get(fmt::format("{}/leaderboard", getServerUrl())));
+}
+
+void GuessManager::getAccount(int accountID, std::function<void(LeaderboardEntry)> callback) {
+    updateStatusAndLoading(TaskStatus::LoadingAccount);
+    m_listener.bind([this, callback] (web::WebTask::Event* e) {
+        if (web::WebResponse* res = e->getValue()) {
+            if (res->code() != 200) {
+                showError(fmt::format("error getting account; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string")));
+                return;
+            }
+
+            auto jsonRes = res->json();
+            if (jsonRes.isErr()) {
+                showError(fmt::format("error getting json: {}", jsonRes.unwrapErr()));
+                return;
+            }
+
+            auto json = jsonRes.unwrap();
+            callback(jsonToEntries({ json })[0]);
+        } else if (e->isCancelled()) {
+            showError("request cancelled");
+        }
+    });
+
+    auto req = web::WebRequest();
+    m_listener.setFilter(req.get(fmt::format("{}/account/{}", getServerUrl(), accountID)));
 }
 
 void GuessManager::syncScores() {
