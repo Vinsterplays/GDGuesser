@@ -295,7 +295,7 @@ router.post("/login", async (req, res) => {
     )
 
     const tokenInfo: UserToken = {
-        account_id: account_id,
+        account_id,
         username: data["username"]
     }
     const jwtToken = jwt.sign(tokenInfo, SECRET_KEY)
@@ -434,7 +434,7 @@ router.get("/leaderboard", async (req, res) => {
     const db = await openDB()
     const results = await db.all(`
         SELECT * FROM scores
-        WHERE total_score > 2500
+        WHERE total_score >= 2500
         ORDER BY (total_score * total_score) * 1.0 / max_score DESC
         LIMIT 100
     `)

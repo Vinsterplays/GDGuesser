@@ -557,6 +557,9 @@ std::string GuessManager::statusToString(TaskStatus status) {
         case TaskStatus::EndGame:
             return "Ending Game"; break;
 
+        case TaskStatus::LoadingAccount:
+            return "Loading Account"; break;
+
         default:
             return "Unknown"; break;
     }
