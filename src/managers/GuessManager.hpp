@@ -143,6 +143,7 @@ public:
     std::vector<LeaderboardEntry> jsonToEntries(std::vector<matjson::Value>);
 
     std::string formatDate(LevelDate);
+    std::string formatNumberWithCommas(int);
 
     static GuessManager& get() {
         static GuessManager instance;
