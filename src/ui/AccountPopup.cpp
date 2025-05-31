@@ -87,7 +87,7 @@ protected:
         this->addChild(authorLabel);
 
         auto menu = CCMenu::create();
-        menu->setPosition(CCPointZero);
+        menu->setPosition(ccp(0.f, -5.f));
         menu->setContentSize(this->getContentSize());
         menu->setAnchorPoint({ 0.f, 0.f });
         menu->ignoreAnchorPointForPosition(false);
@@ -140,6 +140,8 @@ AccountPopup* AccountPopup::create(LeaderboardEntry user) {
 }
 
 bool AccountPopup::setup(LeaderboardEntry user) {
+    this->user = user;
+
     auto username = CCNode::create();
     auto player = SimplePlayer::create(0);
     auto gm = GameManager::get();
@@ -246,54 +248,71 @@ bool AccountPopup::setup(LeaderboardEntry user) {
     difficultyRow->setAnchorPoint({0.5f, 0.5f});
     m_mainLayer->addChildAtPosition(difficultyRow, Anchor::Center, ccp(0.f, 35.f));
 
-    auto historyItems = CCArray::create();
-    GuessEntry item = {
-        56143453,
-        GameMode::Normal,
-        350,
-        {2020, 10, 10},
-        {2021, 5, 15},
-        "Skibidi",
-        "Toilet"
-    };
-    GuessEntry item2 = {
-        66318856,
-        GameMode::Hardcore,
-        500,
-        {2020, 10, 10},
-        {2021, 5, 15},
-        "Dot Hog",
-        "Toilet"
-    };
-    GuessEntry item3 = {
-        10565740,
-        GameMode::Normal,
-        0,
-        {2020, 10, 10},
-        {2021, 5, 15},
-        "Bloodbath",
-        "Toilet"
-    };
-    auto cell = HistoryCell::create(item, 1, 240.f);
-    auto cell2 = HistoryCell::create(item2, 1, 240.f);
-    auto cell3 = HistoryCell::create(item3, 1, 240.f);
-    historyItems->addObject(cell);
-    historyItems->addObject(cell2);
-    historyItems->addObject(cell3);
+    auto backSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+    backSpr->setScale(0.6f);
+    backBtn = CCMenuItemExt::createSpriteExtra(backSpr, [this](CCObject*) {
+        current_page -= 1;
+        getGuesses();
+    });
+    backBtn->setID("back-btn");
 
-    auto historyBg = ListView::create(historyItems, 45.f, 240.f, 100.f);
-    historyBg->setContentSize({240, 120});
-    auto border = geode::Border::create(historyBg, {0,0,0,75}, {240.f, 100.f});
-    //yoinked from creationRotation
-    if(CCScale9Sprite* borderSprite = typeinfo_cast<CCScale9Sprite*>(border->getChildByID("geode.loader/border_sprite"))) {
-        float scaleFactor = 1.7f;
-        borderSprite->setContentSize(CCSize{borderSprite->getContentSize().width, borderSprite->getContentSize().height + 3} / scaleFactor);
-        borderSprite->setScale(scaleFactor);
-        borderSprite->setPositionY(-1);
-    }
-    border->ignoreAnchorPointForPosition(false);
-    m_mainLayer->addChildAtPosition(border, Anchor::Center, ccp(0.f, -60.f));
-    border->setID("history-list-background");
+    auto nextSpr = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
+    nextSpr->setFlipX(true);
+    nextSpr->setScale(0.6f);
+    nextBtn = CCMenuItemExt::createSpriteExtra(nextSpr, [this](CCObject*) {
+        current_page += 1;
+        getGuesses();
+    });
+    nextBtn->setID("next-btn");
+
+    auto backMenu = CCMenu::create();
+    backMenu->addChild(backBtn);
+    m_mainLayer->addChildAtPosition(backMenu, Anchor::Center, ccp(-135.f, -60.f));
+
+    auto nextMenu = CCMenu::create();
+    nextMenu->addChild(nextBtn);
+    m_mainLayer->addChildAtPosition(nextMenu, Anchor::Center, ccp(135.f, -60.f));
+
+    getGuesses();
 
     return true;
+}
+
+void AccountPopup::getGuesses() {
+    backBtn->setVisible(false);
+    nextBtn->setVisible(false);
+
+    if (guessList != nullptr) {
+        guessList->removeFromParent();
+    }
+
+    auto& gm = GuessManager::get();
+    gm.getGuesses(user.account_id, [this](GuessesResponse res) {
+        auto historyItems = CCArray::create();
+
+        for (auto entry : res.entries) {
+            historyItems->addObject(
+                HistoryCell::create(entry, 1, 240.f)
+            );
+        }
+
+        auto historyBg = ListView::create(historyItems, 45.f, 240.f, 100.f);
+        historyBg->setContentSize({240, 120});
+        guessList = Border::create(historyBg, {0,0,0,75}, {240.f, 100.f});
+        //yoinked from creationRotation
+        if(CCScale9Sprite* borderSprite = typeinfo_cast<CCScale9Sprite*>(guessList->getChildByID("geode.loader/border_sprite"))) {
+            float scaleFactor = 1.7f;
+            borderSprite->setContentSize(CCSize{borderSprite->getContentSize().width, borderSprite->getContentSize().height + 3} / scaleFactor);
+            borderSprite->setScale(scaleFactor);
+            borderSprite->setPositionY(-1);
+        }
+        guessList->ignoreAnchorPointForPosition(false);
+        m_mainLayer->addChildAtPosition(guessList, Anchor::Center, ccp(0.f, -60.f));
+        guessList->setID("history-list-background");
+
+        nextBtn->setVisible(res.page + 1 < res.total_pages);
+        backBtn->setVisible(res.page >= 1);
+
+        current_page = res.page;
+    }, current_page);
 }
