@@ -42,29 +42,36 @@ protected:
         GLubyte red   = static_cast<GLubyte>((1.f - t) * 255);
         GLubyte green = static_cast<GLubyte>(t * 255);
         cocos2d::ccColor3B color = { red, green, 0 };
-        #define STAT(sprite, spriteScale, value, anchor) \
+        
+        #define STAT_RAW(node, value, anchor) \
         { \
             auto item = CCNode::create(); \
-            \
-            auto icon = CCSprite::createWithSpriteFrameName(sprite); \
-            icon->setScale(spriteScale); \
-            \
             auto label = CCLabelBMFont::create(value, "bigFont.fnt"); \
             label->setScale(0.3f); \
             label->setAnchorPoint({0.f, 0.4f}); \
             if(anchor == Anchor::TopRight || anchor == Anchor::BottomRight) label->setColor(color); \
             \
-            item->setContentSize({icon->getScaledContentSize().width + label->getScaledContentSize().width + 4.f, icon->getScaledContentSize().height}); \
-            item->addChildAtPosition(icon, Anchor::Left, ccp(icon->getScaledContentSize().width / 2, 0.f)); \
-            item->addChildAtPosition(label, Anchor::Left, ccp(icon->getScaledContentSize().width + 4.f, 0.f)); \
+            item->setContentSize({node->getScaledContentSize().width + label->getScaledContentSize().width + 4.f, node->getScaledContentSize().height}); \
+            item->addChildAtPosition(node, Anchor::Left, ccp(node->getScaledContentSize().width / 2, 0.f)); \
+            item->addChildAtPosition(label, Anchor::Left, ccp(node->getScaledContentSize().width + 4.f, 0.f)); \
             \
             item->setAnchorPoint({0.f, 0.5f}); \
             infoGrid->addChildAtPosition(item, anchor, ccp(0.f, 0.f)); \
         }
+        
+        #define STAT(sprite, spriteScale, value, anchor) \
+        { \
+            auto icon = CCSprite::createWithSpriteFrameName(sprite); \
+            icon->setScale(spriteScale); \
+            \
+            STAT_RAW(icon, value, anchor); \
+        }
 
         STAT("GJ_completesIcon_001.png", 0.4f, correctDateFormatted.c_str(), Anchor::TopLeft);
         STAT("GJ_starsIcon_001.png", 0.5f, std::to_string(guessEntry.score).c_str(), Anchor::TopRight);
-        STAT("GJ_filterIcon_001.png", 0.4f, submittedDate.c_str(), Anchor::BottomLeft);
+        auto guessIcon = CCLabelBMFont::create("?", "bigFont.fnt");
+        guessIcon->setScale(0.4f);
+        STAT_RAW(guessIcon, submittedDate.c_str(), Anchor::BottomLeft);
         STAT("GJ_sTrendingIcon_001.png", 0.6f, fmt::format("{:.1f}%", (float)guessEntry.score / (float)maxScore * 100.f).c_str(), Anchor::BottomRight);
 
         #undef STAT
@@ -79,28 +86,29 @@ protected:
         authorLabel->setPosition(nameLabel->getPositionX() + nameLabel->getScaledContentWidth() + 5.f, nameLabel->getPositionY());
         this->addChild(authorLabel);
 
-        auto level = GameLevelManager::get()->getSavedLevel(guessEntry.level_id);
+        auto menu = CCMenu::create();
+        menu->setPosition(CCPointZero);
+        menu->setContentSize(this->getContentSize());
+        menu->setAnchorPoint({ 0.f, 0.f });
+        menu->ignoreAnchorPointForPosition(false);
 
-        if (level) {
-            auto menu = CCMenu::create();
-            menu->setPosition(CCPointZero);
-            menu->setContentSize(this->getContentSize());
-            menu->setAnchorPoint({ 0.f, 0.f });
-            menu->ignoreAnchorPointForPosition(false);
+        auto viewBtn = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("View"), [guessEntry](CCObject*) {
+            auto layer = LevelBrowserLayer::create(
+                GJSearchObject::create(
+                    SearchType::Search,
+                    std::to_string(guessEntry.level_id)
+                )
+            );
+            auto scene = CCScene::create();
+            scene->addChild(layer);
+            CCDirector::sharedDirector()->pushScene(CCTransitionFade::create(.5f, scene));
+        });
+        viewBtn->setScale(0.6f);
+        viewBtn->m_baseScale = 0.6f;
+        viewBtn->setPosition({ this->getContentSize().width - 35.f, this->getContentSize().height / 2 });
 
-            auto viewBtn = CCMenuItemExt::createSpriteExtra(ButtonSprite::create("View"), [level](CCObject*) {
-                auto layer = LevelInfoLayer::create(level, false);
-                auto scene = CCScene::create();
-                scene->addChild(layer);
-                CCDirector::sharedDirector()->pushScene(CCTransitionFade::create(.5f, scene));
-            });
-            viewBtn->setScale(0.6f);
-            viewBtn->m_baseScale = 0.6f;
-            viewBtn->setPosition({ this->getContentSize().width - 35.f, this->getContentSize().height / 2 });
-
-            menu->addChild(viewBtn);
-            this->addChild(menu);
-        }
+        menu->addChild(viewBtn);
+        this->addChild(menu);
         
         this->setAnchorPoint({ 0.f, 0.5f });
 
