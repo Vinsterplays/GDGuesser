@@ -25,6 +25,17 @@ struct LeaderboardEntry {
     int max_score;
     int total_normal_guesses;
     int total_hardcore_guesses;
+    int leaderboard_position;
+};
+
+struct GuessEntry {
+    int level_id;
+    GameMode mode;
+    int score;
+    LevelDate correct_date;
+    LevelDate guessed_date;
+    std::string level_name;
+    std::string level_creator;
 };
 
 struct GameOptions {
@@ -123,7 +134,7 @@ public:
     std::string statusToString(TaskStatus status);
     std::vector<LeaderboardEntry> jsonToEntries(std::vector<matjson::Value>);
 
-    int dialogProgress = 0;
+    std::string formatDate(LevelDate);
 
     static GuessManager& get() {
         static GuessManager instance;
