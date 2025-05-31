@@ -466,7 +466,7 @@ router.get("/guesses/:account_id", async (req, res) => {
 
     const db = await openDB()
     const results = await db.all(`
-        SELECT * FROM guesses WHERE account_id = ? LIMIT ${per_page} OFFSET ${page * per_page}
+        SELECT * FROM guesses WHERE account_id = ? ORDER BY id DESC LIMIT ${per_page} OFFSET ${page * per_page}
     `, req.params.account_id)
 
     const total_pages = (await db.get("SELECT COUNT(*) AS pages FROM guesses WHERE account_id = ?", req.params.account_id))["pages"] / per_page
