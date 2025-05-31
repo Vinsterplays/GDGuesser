@@ -159,8 +159,18 @@ bool AccountPopup::setup(LeaderboardEntry user) {
     auto theB = CCLabelBMFont::create(user.username.c_str(), "bigFont.fnt");
     theB->limitLabelWidth(150.f, 0.75f, 0.0f);
     theB->setAnchorPoint({1.f, 0.5f});
-    username->setContentSize({theB->getScaledContentWidth() + 20.f, theB->getScaledContentHeight()});
-    username->addChildAtPosition(theB, Anchor::Right);
+    auto nameBtn = CCMenuItemExt::createSpriteExtra(theB, [user](CCObject*) {
+        bool myself = user.account_id == GJAccountManager::get()->m_accountID;
+        ProfilePage::create(user.account_id, myself)->show();
+    });
+    auto nameMenu = CCMenu::create();
+    nameMenu->setContentSize(nameBtn->getContentSize());
+    nameMenu->setAnchorPoint({ 1.f, 0.5f });
+    nameMenu->ignoreAnchorPointForPosition(false);
+    nameBtn->ignoreAnchorPointForPosition(true);
+    nameMenu->addChild(nameBtn);
+    username->setContentSize({nameMenu->getScaledContentWidth() + 20.f, nameMenu->getScaledContentHeight()});
+    username->addChildAtPosition(nameMenu, Anchor::Right);
     username->addChildAtPosition(player, Anchor::Left);
     username->setAnchorPoint({0.5f, 0.5f});
     m_mainLayer->addChildAtPosition(username, Anchor::Top, ccp(0.f, -20.f));
