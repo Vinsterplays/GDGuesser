@@ -91,7 +91,7 @@ bool StartPopup::setup() {
 
     auto profileBtn = CCMenuItemExt::createSpriteExtraWithFrameName("GJ_profileButton_001.png", .75f, [](CCObject*) {
         auto& gm = GuessManager::get();
-        gm.getAccount(GJAccountManager::get()->m_accountID, [](LeaderboardEntry user) {
+        gm.getAccount([](LeaderboardEntry user) {
             if (user.account_id != 0) {
                 AccountPopup::create(user)->show();
             } else {
@@ -102,8 +102,7 @@ bool StartPopup::setup() {
                 dl->animateInRandomSide();
                 CCScene::get()->addChild(dl);
             }
-        });
-        
+        }, GJAccountManager::get()->m_accountID);
     });
     auto profileMenu = CCMenu::create();
     profileMenu->addChild(profileBtn);

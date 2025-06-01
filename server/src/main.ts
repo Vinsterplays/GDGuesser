@@ -186,7 +186,7 @@ async function checkToken(token: string): Promise<{
     }
 }
 
-async function getUser(account_id: string | number) {
+async function getUserBy(sortingMechanism: string, sortObject: any) {
     const db = await openDB()
 
     const response = await db.get(`
@@ -194,14 +194,22 @@ async function getUser(account_id: string | number) {
             SELECT *, ROW_NUMBER() OVER (
                 ORDER BY (total_score * total_score) * 1.0 / max_score DESC
             ) AS leaderboard_position FROM scores
-        ) ranked WHERE account_id = ?;
-    `, account_id)
+        ) ranked WHERE ${sortingMechanism} = ? COLLATE NOCASE;
+    `, sortObject)
 
     if (!response) {
         return undefined
     }
 
     return response
+}
+
+async function getUserByID(account_id: string | number) {
+    return await getUserBy("account_id", account_id)
+}
+
+async function getUserByName(username: string) {
+    return await getUserBy("username", username)
 }
 
 async function submitScore(
@@ -330,7 +338,7 @@ router.post("/login", async (req, res) => {
     const jwtToken = jwt.sign(tokenInfo, SECRET_KEY)
 
     res.status(200).json({
-        user: await getUser(account_id),
+        user: await getUserByID(account_id),
         token: jwtToken
     })
 })
@@ -448,7 +456,20 @@ router.post("/endGame", async (req, res) => {
 })
 
 router.get("/account/:id", async (req, res) => {
-    const response = await getUser(req.params.id)
+    const response = await getUserByID(req.params.id)
+
+    if (!response) {
+        res.status(404).send("no account found")
+        return
+    }
+
+    res.json(
+        response
+    )
+})
+
+router.get("/accountByName/:username", async (req, res) => {
+    const response = await getUserByName(req.params.username)
 
     if (!response) {
         res.status(404).send("no account found")

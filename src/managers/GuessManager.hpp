@@ -128,7 +128,7 @@ public:
     void showError(std::string error);
 
     void getLeaderboard(std::function<void(std::vector<LeaderboardEntry>)> callback);
-    void getAccount(int accountID, std::function<void(LeaderboardEntry)> callback);
+    void getAccount(std::function<void(LeaderboardEntry)> callback, int accountID = 0, std::string username = "");
     void getGuesses(int accountID, std::function<void(GuessesResponse)> callback, int page = 0);
 
     const std::string getServerUrl();

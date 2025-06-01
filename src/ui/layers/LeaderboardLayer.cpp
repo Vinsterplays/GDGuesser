@@ -86,6 +86,50 @@ public:
     }
 };
 
+class SearchPopup : public geode::Popup<> {
+protected:
+    bool setup() {
+        this->setTitle("Player Search");
+        
+        auto searchInput = TextInput::create(150.f, "Name");
+    
+        auto text = CCLabelBMFont::create("Player Name", "bigFont.fnt");
+        text->setScale(0.5f);
+
+        auto btnSpr = ButtonSprite::create("Search");
+        btnSpr->setScale(0.75f);
+        auto btn = CCMenuItemExt::createSpriteExtra(
+            btnSpr, [searchInput](CCObject*) {
+                log::info("{}", searchInput->getString());
+                auto& gm = GuessManager::get();
+                gm.getAccount([](LeaderboardEntry entry) {
+                    AccountPopup::create(entry)->show();
+                }, 0, searchInput->getString());
+            }
+        );
+
+        auto menu = CCMenu::create();
+        menu->addChild(btn);
+
+        m_mainLayer->addChildAtPosition(menu, Anchor::Bottom, ccp(0.f, 20.f));
+        m_mainLayer->addChildAtPosition(searchInput, Anchor::Center, ccp(0.f, -5.f));
+        m_mainLayer->addChildAtPosition(text, Anchor::Center, ccp(0.f, 20.f));
+
+        return true;
+    }
+
+public:
+    static SearchPopup* create() {
+        auto ret = new SearchPopup;
+        if (ret->initAnchored(210.f, 120.f)) {
+            ret->autorelease();
+            return ret;
+        }
+        delete ret;
+        return nullptr;
+    }
+};
+
 GDGLeaderboardLayer* GDGLeaderboardLayer::create() {
     auto ret = new GDGLeaderboardLayer();
 
@@ -110,7 +154,6 @@ bool GDGLeaderboardLayer::init() {
     addSideArt(this, SideArt::TopRight);
 
     this->addChild(background, -5);
-
 
     auto closeBtnSprite = CCSprite::createWithSpriteFrameName("GJ_arrow_01_001.png");
     auto closeBtn = CCMenuItemExt::createSpriteExtra(
@@ -152,9 +195,19 @@ bool GDGLeaderboardLayer::init() {
     lbSpr->setPosition({ size.width / 2.f, size.height / 2 + 130.f });
 
     auto infoBtn = InfoAlertButton::create("Info", "The way the leaderboard is sorted is via <cy>accuracy</c>. Your accuracy is your total score divided by your overall <cl>maximum score</c> (the score you would have if you got max points on all questions).", 1.f);
+
+    auto searchBtn = CCMenuItemExt::createSpriteExtraWithFrameName("gj_findBtn_001.png", 1.f, [](CCObject*) {
+        SearchPopup::create()->show();
+    });
+
     auto topRightMenu = CCMenu::create();
     topRightMenu->addChild(infoBtn);
-    topRightMenu->setPosition({ size.width - 20.f, size.height - 20.f });
+    topRightMenu->addChild(searchBtn);
+    topRightMenu->setLayout(
+        ColumnLayout::create()
+            ->setAxisReverse(true)
+    );
+    topRightMenu->setPosition({ size.width - 20.f, size.height - 40.f });
 
     this->addChild(topRightMenu);
 

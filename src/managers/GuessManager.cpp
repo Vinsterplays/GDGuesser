@@ -499,7 +499,7 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
     m_listener.setFilter(req.get(fmt::format("{}/leaderboard", getServerUrl())));
 }
 
-void GuessManager::getAccount(int accountID, std::function<void(LeaderboardEntry)> callback) {
+void GuessManager::getAccount(std::function<void(LeaderboardEntry)> callback, int accountID, std::string username) {
     updateStatusAndLoading(TaskStatus::LoadingAccount);
     m_listener.bind([this, callback] (web::WebTask::Event* e) {
         if (web::WebResponse* res = e->getValue()) {
@@ -541,7 +541,17 @@ void GuessManager::getAccount(int accountID, std::function<void(LeaderboardEntry
     });
 
     auto req = web::WebRequest();
-    m_listener.setFilter(req.get(fmt::format("{}/account/{}", getServerUrl(), accountID)));
+    std::string endpoint = "";
+    if (accountID != 0) {
+        endpoint = "account";
+    } else if (!username.empty()) {
+        endpoint = "accountByName";
+    } else {
+        log::error("there must either be an accountID or username while getting an account.");
+        return;
+    }
+    
+    m_listener.setFilter(req.get(fmt::format("{}/{}/{}", getServerUrl(), endpoint, (accountID == 0) ? username : std::to_string(accountID))));
 }
 
 void GuessManager::syncScores() {
