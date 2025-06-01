@@ -470,6 +470,7 @@ void GuessManager::getGuesses(int accountID, std::function<void(GuessesResponse)
 }
 
 void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntry>)> callback) {
+    safeAddLoadingLayer();
     updateStatusAndLoading(TaskStatus::GetLeaderboard);
     m_listener.bind([this, callback] (web::WebTask::Event* e) {
         if (web::WebResponse* res = e->getValue()) {
@@ -492,6 +493,7 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
                 return;
             }
             auto leaderboardJson = lbResult.unwrap();
+            safeRemoveLoadingLayer();
             callback(jsonToEntries(leaderboardJson));
         } else if (e->isCancelled()) {
             showError("request cancelled");
