@@ -82,6 +82,7 @@ void GuessManager::showError(std::string error) {
         error,
         "OK"
     )->show();
+    safeRemoveLoadingLayer();
 }
 
 void GuessManager::startNewGame(GameOptions options) {
@@ -144,7 +145,6 @@ void GuessManager::startNewGame(GameOptions options) {
                     startGame();
                 }
             } else if (e->isCancelled()) {
-                safeRemoveLoadingLayer();
                 showError("request cancelled");
             }
         });
@@ -221,7 +221,6 @@ void GuessManager::startNewGame(GameOptions options) {
         auto res = argon::startAuth([this, getAcc, options](Result<std::string> res) {
             if (!res || res.isErr()) {
                 showError(fmt::format("Argon authentication error: {}", res.unwrapErr()));
-                safeRemoveLoadingLayer();
                 return;
             }
 
@@ -230,7 +229,6 @@ void GuessManager::startNewGame(GameOptions options) {
 
         if (!res) {
             showError(fmt::format("Argon authentication error: {}", res.unwrapErr()));
-            safeRemoveLoadingLayer();
         }
     };
 
@@ -505,6 +503,7 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
 }
 
 void GuessManager::getAccount(std::function<void(LeaderboardEntry)> callback, int accountID, std::string username) {
+    safeAddLoadingLayer();
     updateStatusAndLoading(TaskStatus::LoadingAccount);
     m_listener.bind([this, callback] (web::WebTask::Event* e) {
         if (web::WebResponse* res = e->getValue()) {
@@ -539,6 +538,7 @@ void GuessManager::getAccount(std::function<void(LeaderboardEntry)> callback, in
             }
 
             auto json = jsonRes.unwrap();
+            safeRemoveLoadingLayer();
             callback(jsonToEntries({ json })[0]);
         } else if (e->isCancelled()) {
             showError("request cancelled");
@@ -611,8 +611,6 @@ void GuessManager::levelDownloadFinished(GJGameLevel* level) {
 
 void GuessManager::levelDownloadFailed(int x) {
     showError(fmt::format("could not fetch level, code {}", x));
-
-    safeRemoveLoadingLayer();
 }
 
 int GuessManager::getLevelDifficulty(GJGameLevel* level) {
