@@ -126,6 +126,7 @@ public:
     void safeAddLoadingLayer();
 
     void showError(std::string error);
+    void cancelCurrentRequest();
 
     void getLeaderboard(std::function<void(std::vector<LeaderboardEntry>)> callback);
     void getAccount(std::function<void(LeaderboardEntry)> callback, int accountID = 0, std::string username = "");

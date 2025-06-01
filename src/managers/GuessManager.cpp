@@ -72,7 +72,10 @@ DateFormat GuessManager::getDateFormat() {
 void GuessManager::setupRequest(web::WebRequest& req, matjson::Value body) {
     req.header("Authorization", m_daToken);
     req.header("Version", Mod::get()->getVersion().toNonVString());
-    req.bodyJSON(body);
+    if (body.size() != 0) {
+        req.bodyJSON(body);
+    }
+    m_listener.enable();
 }
 
 void GuessManager::showError(std::string error) {
@@ -83,6 +86,10 @@ void GuessManager::showError(std::string error) {
         "OK"
     )->show();
     safeRemoveLoadingLayer();
+}
+
+void GuessManager::cancelCurrentRequest() {
+    m_listener.disable();
 }
 
 void GuessManager::startNewGame(GameOptions options) {
@@ -211,6 +218,7 @@ void GuessManager::startNewGame(GameOptions options) {
         }));
         req.header("Authorization", argonToken);
         req.header("Version", Mod::get()->getVersion().toNonVString());
+        m_listener.enable();
         m_listener.setFilter(req.post(fmt::format("{}/login", getServerUrl())));
     };
     
@@ -464,6 +472,7 @@ void GuessManager::getGuesses(int accountID, std::function<void(GuessesResponse)
     });
 
     auto req = web::WebRequest();
+    setupRequest(req, matjson::makeObject({}));
     m_listener.setFilter(req.get(fmt::format("{}/guesses/{}?page={}", getServerUrl(), accountID, page))); 
 }
 
@@ -499,6 +508,7 @@ void GuessManager::getLeaderboard(std::function<void(std::vector<LeaderboardEntr
     });
 
     auto req = web::WebRequest();
+    setupRequest(req, matjson::makeObject({}));
     m_listener.setFilter(req.get(fmt::format("{}/leaderboard", getServerUrl())));
 }
 
@@ -507,6 +517,7 @@ void GuessManager::getAccount(std::function<void(LeaderboardEntry)> callback, in
     updateStatusAndLoading(TaskStatus::LoadingAccount);
     m_listener.bind([this, callback] (web::WebTask::Event* e) {
         if (web::WebResponse* res = e->getValue()) {
+            safeRemoveLoadingLayer();
             if (res->code() != 200 && res->code() != 404) {
                 showError(fmt::format("error getting account; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string")));
                 return;
@@ -538,7 +549,6 @@ void GuessManager::getAccount(std::function<void(LeaderboardEntry)> callback, in
             }
 
             auto json = jsonRes.unwrap();
-            safeRemoveLoadingLayer();
             callback(jsonToEntries({ json })[0]);
         } else if (e->isCancelled()) {
             showError("request cancelled");
@@ -556,6 +566,8 @@ void GuessManager::getAccount(std::function<void(LeaderboardEntry)> callback, in
         return;
     }
     
+    setupRequest(req, matjson::makeObject({}));
+    log::info("{}/{}/{}", getServerUrl(), endpoint, (accountID == 0) ? username : std::to_string(accountID));
     m_listener.setFilter(req.get(fmt::format("{}/{}/{}", getServerUrl(), endpoint, (accountID == 0) ? username : std::to_string(accountID))));
 }
 

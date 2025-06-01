@@ -6,7 +6,7 @@ using namespace geode::prelude;
 
 class AccountPopup : public geode::Popup<LeaderboardEntry> {
 protected:
-    bool setup(LeaderboardEntry user);
+    bool setup(LeaderboardEntry user) override;
     void getGuesses();
 
     CCMenuItemSpriteExtra* backBtn;
@@ -15,6 +15,8 @@ protected:
     int current_page = 0;
     LeaderboardEntry user;
     Border* guessList = nullptr;
+
+    void onClose(CCObject*) override;
 public:
     static AccountPopup* create(LeaderboardEntry user);
 };

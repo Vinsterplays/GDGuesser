@@ -318,12 +318,20 @@ void AccountPopup::getGuesses() {
             borderSprite->setPositionY(-1);
         }
         guessList->ignoreAnchorPointForPosition(false);
-        m_mainLayer->addChildAtPosition(guessList, Anchor::Center, ccp(0.f, -60.f));
-        guessList->setID("history-list-background");
+        if (m_mainLayer) {        
+            m_mainLayer->addChildAtPosition(guessList, Anchor::Center, ccp(0.f, -60.f));
+            guessList->setID("history-list-background");
 
-        nextBtn->setVisible(res.page + 1 < res.total_pages);
-        backBtn->setVisible(res.page >= 1);
+            nextBtn->setVisible(res.page + 1 < res.total_pages);
+            backBtn->setVisible(res.page >= 1);
+        }
 
         current_page = res.page;
     }, current_page);
+}
+
+void AccountPopup::onClose(CCObject* sender) {
+    auto& gm = GuessManager::get();
+    gm.cancelCurrentRequest();
+    Popup<LeaderboardEntry>::onClose(sender);
 }
