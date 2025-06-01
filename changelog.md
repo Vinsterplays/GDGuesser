@@ -1,6 +1,13 @@
 # 1.0.0-beta.10
-- NEW Account Popup
-- Guess History
+- NEW Account Popup (thanks Vinster for the help!)
+    - This popup displays your stats and current place on the leaderboard
+- Guess History! You can now see your own guess history and others
+- Prevent the editor from being opened while guessing (thanks Vinster!)
+- iOS bugfixes (thanks Vinster!)
+- Added commas to large numbers (thanks Vinster!)
+- Added the ability to search for players on the leaderboard layer
+- Added version detection to make sure people are playing on the latest version
+- TONS of smaller misc. bugfixes
 
 # 1.0.0-beta.9
 - Bump Argon version
