@@ -10,6 +10,8 @@ import { open } from "sqlite"
 
 import * as jwt from "jsonwebtoken"
 
+import { version as serverVersion } from "../package.json"
+
 const router = express()
 const httpServer = createServer(router)
 router.use(express.json());
@@ -297,6 +299,27 @@ router.get("/getStats", async (req, res) => {
             FROM scores;
         `))["overallAccuracy"]
     })
+})
+
+router.use((req, res, next) => {
+    if (req.method.toLowerCase() != "post") {
+        next()
+        return
+    }
+
+    const version = req.headers["version"] as string | undefined
+    if (!version) {
+        res.status(400).send("Valid version required")
+        return
+    }
+
+    if (version !== serverVersion) {
+        res.status(400).send(`Server version ${serverVersion} and client version ${version} mismatch. Please either update the GDGuesser mod or contact the owner of this server to update to the latest version.`)
+        return
+    }
+
+    // all checks pass; we good!
+    next()
 })
 
 router.post("/login", async (req, res) => {

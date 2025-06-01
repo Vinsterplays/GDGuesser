@@ -71,6 +71,7 @@ DateFormat GuessManager::getDateFormat() {
 
 void GuessManager::setupRequest(web::WebRequest& req, matjson::Value body) {
     req.header("Authorization", m_daToken);
+    req.header("Version", Mod::get()->getVersion().toNonVString());
     req.bodyJSON(body);
 }
 
@@ -159,7 +160,8 @@ void GuessManager::startNewGame(GameOptions options) {
         m_listener.bind([this, doTheThing, options] (web::WebTask::Event* e) {
             if (web::WebResponse* res = e->getValue()) {
                 if (res->code() != 200) {
-                    log::debug("received non-200 code: {}, {}", res->code(), res->string().unwrapOr("b"));
+                    safeRemoveLoadingLayer();
+                    showError(fmt::format("received non-200 code: {}, {}", res->code(), res->string().unwrapOr("b")));
                     return;
                 }
 
@@ -208,6 +210,7 @@ void GuessManager::startNewGame(GameOptions options) {
             {"account_id", GJAccountManager::get()->m_accountID}
         }));
         req.header("Authorization", argonToken);
+        req.header("Version", Mod::get()->getVersion().toNonVString());
         m_listener.setFilter(req.post(fmt::format("{}/login", getServerUrl())));
     };
     
