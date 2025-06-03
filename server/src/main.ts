@@ -441,7 +441,7 @@ router.post("/guess/:date", async (req, res) => {
     
     // only submit if all versions are selected
     if (games[account_id].options.versions.length === Object.keys(ID_CUTOFFS).length) {
-        submitScore(gameMode, data.user, true, accuracy, score, correctDate, date, levelId, levelInfo["cache_level_name"], levelInfo["cache_username"])
+        await submitScore(gameMode, data.user, true, accuracy, score, correctDate, date, levelId, levelInfo["cache_level_name"], levelInfo["cache_username"])
     }
 
     delete games[account_id]
