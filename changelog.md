@@ -1,3 +1,10 @@
+# 1.0.0-beta.11
+- Show a loading screen when getting a player
+- Show the loading screen and remove it properly
+- Fix crashes related to the account popup
+- Add a spinner to guess history
+- Fix a server crash
+
 # 1.0.0-beta.10
 - NEW Account Popup (thanks Vinster for the help!)
     - This popup displays your stats and current place on the leaderboard
