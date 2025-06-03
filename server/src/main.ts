@@ -278,7 +278,7 @@ async function submitScore(
                 level_name,
                 level_creator
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `, user.account_id, level_id, score, mode, correct_date, guessed_date, level_name, level_creator)
+        `, user.account_id, level_id, score, mode, correct_date, guessed_date, level_name || "-", level_creator || "-")
     }
 }
 
