@@ -66,6 +66,7 @@ class $modify(MenuLayer) {
 };
 #endif
 
+#ifdef GEODE_IS_WINDOWS
 // stolen with permission from globed
 
 // _Throw_Cpp_error reimpl
@@ -118,3 +119,4 @@ $on_mod(Loaded) {
         log::warn("_Throw_Cpp_error hook failed: {}", res.unwrapErr());
     }
 };
+#endif
