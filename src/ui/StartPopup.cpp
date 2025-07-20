@@ -2,6 +2,7 @@
 #include <ui/layers/LeaderboardLayer.hpp>
 #include <ui/layers/LoadingOverlayLayer.hpp>
 #include <ui/AccountPopup.hpp>
+#include <ui/duels/DuelsStartPopup.hpp>
 
 StartPopup* StartPopup::create() {
     auto ret = new StartPopup;
@@ -21,10 +22,16 @@ bool StartPopup::setup() {
     auto btn = CCMenuItemExt::createSpriteExtra(playSprite, [this](CCObject*) {
         auto startGameFr = [this]() {
             auto& gm = GuessManager::get();
-            gm.startNewGame({
-                .mode = options.mode,
-                .versions = options.versions
-            });
+            if (options.mode != GameMode::Duels) {
+                gm.startNewGame({
+                    .mode = options.mode,
+                    .versions = options.versions
+                });
+            } else {
+                gm.authenticate([]() {
+                    DuelsStartPopup::create()->show();
+                });
+            }
         };
         if (options.versions.size() != 13) {
             geode::createQuickPopup(
@@ -113,10 +120,12 @@ bool StartPopup::setup() {
 
     std::vector<CCMenuItemToggler*> difficultyButtons;
 
-    #define DIFFICULTY_BTN(selectedMode, sprite, labelText) \
+    #define DIFFICULTY_BTN(selectedMode, sprite, labelText, scale) \
         { \
             auto iconOn = CCScale9Sprite::createWithSpriteFrameName(sprite); \
             auto iconOff = CCScale9Sprite::createWithSpriteFrameName(sprite); \
+            iconOn->setScale(scale); \
+            iconOff->setScale(scale); \
             iconOff->setOpacity(255 * 0.5); \
             \
             auto label = CCLabelBMFont::create(labelText, "bigFont.fnt"); \
@@ -155,9 +164,9 @@ bool StartPopup::setup() {
             difficultyButtons.push_back(difficultyBtn); \
         }
 
-    DIFFICULTY_BTN(GameMode::Normal, "diffIcon_01_btn_001.png", "Normal")
-    DIFFICULTY_BTN(GameMode::Hardcore, "diffIcon_05_btn_001.png", "Hardcore")
-    //DIFFICULTY_BTN(GameMode::Extreme, "diffIcon_10_btn_001.png", "Extreme")
+    DIFFICULTY_BTN(GameMode::Normal, "diffIcon_01_btn_001.png", "Normal", 1.f)
+    DIFFICULTY_BTN(GameMode::Hardcore, "diffIcon_05_btn_001.png", "Hardcore", 1.f)
+    DIFFICULTY_BTN(GameMode::Duels, "accountBtn_friends_001.png", "Duels", 0.85f)
 
     #undef DIFFICULTY_BTN
 
@@ -167,42 +176,42 @@ bool StartPopup::setup() {
         options.mode = GameMode::Normal;
     }
 
-    #define VERSION_BTN(version_name) \
-        { \
-            auto versionTextOff = CCLabelBMFont::create(version_name, "bigFont.fnt"); \
-            versionTextOff->setOpacity(255 * .5); \
-            auto versionBtn = CCMenuItemExt::createToggler(CCLabelBMFont::create(version_name, "bigFont.fnt"), versionTextOff, [this](CCMenuItemToggler* toggler) { \
-                if (!toggler->isOn()) { \
-                    if (std::find(options.versions.begin(), options.versions.end(), version_name) == options.versions.end()) { \
-                        options.versions.push_back(version_name); \
-                    } \
-                } else { \
-                    auto searchResult = std::find(options.versions.begin(), options.versions.end(), version_name); \
-                    if (searchResult != options.versions.end()) { \
-                        options.versions.erase(searchResult); \
-                    } \
-                } \
-            }); \
-            versionBtn->toggle(true); \
-            versionsMenu->addChild(versionBtn); \
-            options.versions.push_back(version_name); \
-        }
+    const std::vector<std::string> versions = {
+        "1.0",
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9",
+        "2.0",
+        "2.1",
+        "2.2",
+    };
 
-    VERSION_BTN("1.0")
-    VERSION_BTN("1.1")
-    VERSION_BTN("1.2")
-    VERSION_BTN("1.3")
-    VERSION_BTN("1.4")
-    VERSION_BTN("1.5")
-    VERSION_BTN("1.6")
-    VERSION_BTN("1.7")
-    VERSION_BTN("1.8")
-    VERSION_BTN("1.9")
-    VERSION_BTN("2.0")
-    VERSION_BTN("2.1")
-    VERSION_BTN("2.2")
-
-    #undef VERSION_BTN
+    for (auto _version_name : versions) { 
+        auto version_name = _version_name.c_str();
+        auto versionTextOff = CCLabelBMFont::create(version_name, "bigFont.fnt");
+        versionTextOff->setOpacity(255 * .5);
+        auto versionBtn = CCMenuItemExt::createToggler(CCLabelBMFont::create(version_name, "bigFont.fnt"), versionTextOff, [this, version_name](CCMenuItemToggler* toggler) {
+            if (!toggler->isOn()) {
+                if (std::find(options.versions.begin(), options.versions.end(), version_name) == options.versions.end()) {
+                    options.versions.push_back(version_name);
+                }
+            } else {
+                auto searchResult = std::find(options.versions.begin(), options.versions.end(), version_name);
+                if (searchResult != options.versions.end()) {
+                    options.versions.erase(searchResult);
+                }
+            }
+        });
+        versionBtn->toggle(true);
+        versionsMenu->addChild(versionBtn);
+        options.versions.push_back(version_name);
+    }
 
     versionsMenu->setLayout(
         RowLayout::create()

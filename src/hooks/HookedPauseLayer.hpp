@@ -12,4 +12,7 @@ class $modify(HookedPauseLayer, PauseLayer) {
 
     $override
     void onEdit(CCObject* sender);
+
+    $override
+    void onResume(CCObject* sender);
 };

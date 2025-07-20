@@ -1,10 +1,16 @@
-#include "GuessManager.hpp"
 #include <ui/layers/LevelLayer.hpp>
+#include <ui/duels/DuelsResultsPopup.hpp>
 
 #include <argon/argon.hpp>
 
 #include <Geode/cocos/support/base64.h>
 #include <Geode/cocos/support/zip_support/ZipUtils.h>
+
+#include "GuessManager.hpp"
+#include "net/manager.hpp"
+#include "net/client.hpp"
+#include "net/server.hpp"
+
 
 // stolen from https://github.com/GlobedGD/globed2/blob/main/src/util/gd.cpp#L11
 void reorderDownloadedLevel(GJGameLevel* level) {
@@ -70,7 +76,7 @@ DateFormat GuessManager::getDateFormat() {
 }
 
 void GuessManager::setupRequest(web::WebRequest& req, matjson::Value body) {
-    req.header("Authorization", m_daToken);
+    req.header("Authorization", m_token);
     req.header("Version", Mod::get()->getVersion().toNonVString());
     if (body.size() != 0) {
         req.bodyJSON(body);
@@ -99,8 +105,125 @@ void GuessManager::cancelCurrentRequest() {
     m_listener.disable();
 }
 
+void GuessManager::authenticate(std::function<void()> cb) {
+    auto doAuthentication = [this, cb]() {
+        safeAddLoadingLayer();
+        
+        updateStatusAndLoading(TaskStatus::Authenticate);
+        auto res = argon::startAuth([this, cb](Result<std::string> res) {
+            if (!res || res.isErr()) {
+                showError(fmt::format("Argon authentication error: {}", res.unwrapErr()), 1301);
+                return;
+            }
+
+            auto req = web::WebRequest();
+            auto gm = GameManager::get();
+            req.bodyJSON(matjson::makeObject({
+                {"icon_id", gm->getPlayerFrame()},
+                {"color1", gm->m_playerColor.value()},
+                {"color2", gm->m_playerColor2.value()},
+                {"color3", gm->m_playerGlow ?
+                    gm->m_playerGlowColor.value() :
+                    -1
+                },
+                {"account_id", GJAccountManager::get()->m_accountID}
+            }));
+            req.header("Authorization", std::move(res).unwrap());
+            req.header("Version", Mod::get()->getVersion().toNonVString());
+            req.post(fmt::format("{}/login", getServerUrl())).listen([this, cb] (web::WebResponse* res) {
+                safeRemoveLoadingLayer();
+                if (res) {
+                    if (res->code() != 200) {
+                        showError(fmt::format("received non-200 code: {}, {}", res->code(), res->string().unwrapOr("b")), res->code());
+                        return;
+                    }
+
+                    auto jsonRes = res->json();
+                    if (jsonRes.isErr()) {
+                        showError(fmt::format("error getting account json: {}", jsonRes.unwrapErr()), 1002);
+                        return;
+                    }
+
+                    auto json = jsonRes.unwrap();
+
+                    auto scoreResult = json["user"]["total_score"].asInt();
+                    if (scoreResult.isErr()) {
+                        showError(fmt::format("unable to get score: {}", scoreResult.unwrapErr()), 1100);
+                        return;
+                    }
+                    auto score = scoreResult.unwrap();
+                    totalScore = score;
+
+                    auto tokenResult = json["token"].asString();
+                    if (tokenResult.isErr()) {
+                        showError(fmt::format("unable to get JWT!!! {}", tokenResult.unwrapErr()), 1102);
+                        return;
+                    }
+
+                    auto token = tokenResult.unwrap();
+                    m_token = token;
+
+                    cb();
+                } else {
+                    showError("request cancelled", 1303);
+                }
+            });
+        }, [](argon::AuthProgress progress) {});
+
+        if (!res) {
+            if (res.unwrapErr() != "Stage 2 failed (generic error)") {
+                showError(fmt::format("{}", res.unwrapErr()), 1301);
+            } else {
+                showError(fmt::format("{}", res.unwrapErr()), 1302);
+            }
+        }
+    };
+
+    // check if we haven't already authenticated, otherwise just run the callback
+    if (!m_token.empty()) {
+        cb();
+    } else {
+        if (Mod::get()->getSavedValue<bool>("has-consented")) {
+            doAuthentication();
+        } else {
+            createQuickPopup(
+                "Authentication",
+                "For <cg>verification purposes</c> this action will <cl>send a message to a bot account</c> and then immediately delete it.\n<cr>If you do not consent to this, press \"Cancel\"</c>",
+                "Cancel",
+                "Submit",
+            [doAuthentication](auto alert, bool btn2) {
+                if (btn2) {
+                    doAuthentication();
+                    Mod::get()->setSavedValue<bool>("has-consented", true);
+                }
+            });
+        }
+
+    }
+}
+
+void GuessManager::connectToMP() {
+    auto& nm = NetworkManager::get();
+    nm.connect(m_token);
+}
+
+void GuessManager::startGame(int levelId, GameOptions options) {
+    safeAddLoadingLayer();
+    if (this->realLevel && Mod::get()->getSettingValue<bool>("dont-save-levels")) {
+        GameLevelManager::get()->deleteLevel(this->realLevel);
+        this->realLevel = nullptr;
+    }
+    
+    this->options = options;
+    
+    auto* glm = GameLevelManager::get();
+    glm->m_levelManagerDelegate = this;
+    glm->getOnlineLevels(GJSearchObject::create(SearchType::Search, std::to_string(levelId)));
+    updateStatusAndLoading(TaskStatus::GetLevel);
+}
+
 void GuessManager::startNewGame(GameOptions options) {
-    auto doTheThing = [this, options]() {
+    authenticate([this, options]() {
         auto optionsCopy = options;
         safeAddLoadingLayer();
         updateStatusAndLoading(TaskStatus::Start);        
@@ -129,19 +252,9 @@ void GuessManager::startNewGame(GameOptions options) {
                     return;
                 }
 
-                auto startGame = [this, levelIdRes, options]() {
-                    if (this->realLevel && Mod::get()->getSettingValue<bool>("dont-save-levels")) {
-                        GameLevelManager::get()->deleteLevel(this->realLevel);
-                        this->realLevel = nullptr;
-                    }
-                    
-                    auto levelId = levelIdRes.unwrap();
-                    this->options = options;
-                    
-                    auto* glm = GameLevelManager::get();
-                    glm->m_levelManagerDelegate = this;
-                    glm->getOnlineLevels(GJSearchObject::create(SearchType::Search, std::to_string(levelId)));
-                    updateStatusAndLoading(TaskStatus::GetLevel);
+                auto startGameFr = [this, levelIdRes, options]() {
+                    auto levelId = levelIdRes.unwrap();                    
+                    startGame(levelId, options);
                 };
                 
 
@@ -152,11 +265,11 @@ void GuessManager::startNewGame(GameOptions options) {
                         "Looks like you exited the game before making a guess.\n<cr>Your total accuracy has dropped.</c>",
                     "OK",
                     nullptr,
-                    [startGame, options](auto, bool) {
-                        startGame();
+                    [startGameFr, options](auto, bool) {
+                        startGameFr();
                     });
                 } else {
-                    startGame();
+                    startGameFr();
                 }
             } else if (e->isCancelled()) {
                 showError("request cancelled", 1303);
@@ -166,45 +279,95 @@ void GuessManager::startNewGame(GameOptions options) {
         auto req = web::WebRequest();
         setupRequest(req, matjson::makeObject({{"options", optionsCopy}}));
         m_listener.setFilter(req.post(fmt::format("{}/start-new-game", getServerUrl())));
-    };
+    });
+}
 
-    // get total score
-    auto getAcc = [this, doTheThing, options](std::string argonToken) {
-        // EventListener<web::WebTask> listener;
-        m_listener.bind([this, doTheThing, options] (web::WebTask::Event* e) {
+void GuessManager::createDuel(std::function<void()> cb) {
+    NetworkManager::get().connect(m_token, [this, cb]() {
+        auto& nm = NetworkManager::get();
+
+        CreateDuel ev = {
+            .options = {
+                .mode = GameMode::Normal,
+            }
+        };
+        nm.send(ev);
+
+        nm.on<DuelCreated>([this, cb](DuelCreated resp) {
+            joinDuel(resp.joinCode, cb);
+        });
+    });
+}
+
+void GuessManager::joinDuel(std::string code, std::function<void()> cb) {
+    NetworkManager::get().connect(m_token, [this, code, cb]() {
+        auto& nm = NetworkManager::get();
+
+        JoinDuel joinEv = {
+            .joinCode = code
+        };
+        nm.send(joinEv);
+
+        nm.on<DuelJoined>([this, code, cb](auto) {
+            this->duelJoinCode = code;
+            cb();
+        });
+    });
+}
+
+void GuessManager::submitGuess(LevelDate date, std::function<void(int score, LevelDate correctDate, LevelDate date)> callback) {
+    safeAddLoadingLayer();
+
+    updateStatusAndLoading(TaskStatus::SubmitGuess);
+    auto& nm = NetworkManager::get();
+    if (!this->duelJoinCode.empty() && nm.isConnected) {
+        SubmitGuess event = {
+            .date = date
+        };
+        nm.send(event);
+        updateStatusAndLoading(TaskStatus::WaitingForOpponent);
+        nm.on<DuelResults>([this](DuelResults event) {
+            safeRemoveLoadingLayer();
+            DuelsResultsPopup::create(event)->show();
+        });
+    } else {
+        m_listener.bind([this, callback, date] (web::WebTask::Event* e) {
             if (web::WebResponse* res = e->getValue()) {
                 if (res->code() != 200) {
-                    safeRemoveLoadingLayer();
-                    showError(fmt::format("received non-200 code: {}, {}", res->code(), res->string().unwrapOr("b")), res->code());
+                    showError(fmt::format("error starting submitting guess; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string")), res->code());
                     return;
                 }
 
                 auto jsonRes = res->json();
                 if (jsonRes.isErr()) {
-                    showError(fmt::format("error getting account json: {}", jsonRes.unwrapErr()), 1002);
+                    showError(fmt::format("error getting json: {}", jsonRes.unwrapErr()), 1003);
                     return;
                 }
 
                 auto json = jsonRes.unwrap();
 
-                auto scoreResult = json["user"]["total_score"].asInt();
+                auto scoreResult = json["score"].asInt();
                 if (scoreResult.isErr()) {
-                    showError(fmt::format("unable to get score: {}", scoreResult.unwrapErr()), 1106);
+                    showError(fmt::format("unable to get score: {}", scoreResult.unwrapErr()), 1103);
                     return;
                 }
                 auto score = scoreResult.unwrap();
-                totalScore = score;
 
-                auto tokenResult = json["token"].asString();
-                if (tokenResult.isErr()) {
-                    showError(fmt::format("unable to get JWT!!! {}", tokenResult.unwrapErr()), 1102);
-                    return;
+                // if all versions aren't selected, your total score will not be impacted
+                if (options.versions.size() == 13) {
+                    totalScore += score;
                 }
+                
+                safeRemoveLoadingLayer();
 
-                auto token = tokenResult.unwrap();
-                m_daToken = token;
-
-                doTheThing();
+                log::info("{}", static_cast<int>(json["correctDate"]["year"].asInt().unwrapOr(0)));
+                callback(score, {
+                    .year = static_cast<int>(json["correctDate"]["year"].asInt().unwrapOr(0)),
+                    .month = static_cast<int>(json["correctDate"]["month"].asInt().unwrapOr(0)),
+                    .day = static_cast<int>(json["correctDate"]["day"].asInt().unwrapOr(0)),
+                }, date);
+                this->currentLevel = nullptr;
+                this->realLevel = nullptr;
             } else if (e->isCancelled()) {
                 safeRemoveLoadingLayer();
                 showError("request cancelled", 1303);
@@ -212,117 +375,9 @@ void GuessManager::startNewGame(GameOptions options) {
         });
 
         auto req = web::WebRequest();
-        auto gm = GameManager::get();
-        req.bodyJSON(matjson::makeObject({
-            {"icon_id", gm->getPlayerFrame()},
-            {"color1", gm->m_playerColor.value()},
-            {"color2", gm->m_playerColor2.value()},
-            {"color3", gm->m_playerGlow ?
-                gm->m_playerGlowColor.value() :
-                -1
-            },
-            {"account_id", GJAccountManager::get()->m_accountID}
-        }));
-        req.header("Authorization", argonToken);
-        req.header("Version", Mod::get()->getVersion().toNonVString());
-        m_listener.enable();
-        m_listener.setFilter(req.post(fmt::format("{}/login", getServerUrl())));
-    };
-    
-    auto doAuthentication = [this, getAcc, options]() {
-        safeAddLoadingLayer();
-        
-        updateStatusAndLoading(TaskStatus::Authenticate);
-        auto res = argon::startAuth([this, getAcc, options](Result<std::string> res) {
-            if (!res || res.isErr()) {
-                showError(fmt::format("Argon authentication error: {}", res.unwrapErr()), 1301);
-                return;
-            }
-
-            getAcc(std::move(res).unwrap());
-        }, [](argon::AuthProgress progress) {});
-
-        if (!res) {
-            if (res.unwrapErr() != "Stage 2 failed (generic error)") {
-                showError(fmt::format("{}", res.unwrapErr()), 1301);
-            } else {
-                showError(fmt::format("{}", res.unwrapErr()), 1302);
-            }
-        }
-    };
-
-    if (!m_daToken.empty()) {
-        doTheThing();
-    } else {
-        if (Mod::get()->getSavedValue<bool>("has-consented")) {
-            doAuthentication();
-        } else {
-            createQuickPopup(
-                "Authentication",
-                "For <cg>verification purposes</c> this action will <cl>send a message to a bot account</c> and then immediately delete it.\n<cr>If you do not consent to this, press \"Cancel\"</c>",
-            "Cancel",
-            "Sumbit",
-            [doAuthentication](auto alert, bool btn2) {
-                if (btn2) {
-                    doAuthentication();
-                    Mod::get()->setSavedValue<bool>("has-consented", true);
-                }
-            });
-        }
-
+        setupRequest(req, matjson::makeObject({}));
+        m_listener.setFilter(req.post(fmt::format("{}/guess/{}-{}-{}", getServerUrl(), date.year, date.month, date.day)));
     }
-}
-
-void GuessManager::submitGuess(LevelDate date, std::function<void(int score, LevelDate correctDate, LevelDate date)> callback) {
-    safeAddLoadingLayer();
-
-    updateStatusAndLoading(TaskStatus::SubmitGuess);
-    m_listener.bind([this, callback, date] (web::WebTask::Event* e) {
-        if (web::WebResponse* res = e->getValue()) {
-            if (res->code() != 200) {
-                showError(fmt::format("error starting submitting guess; http code: {}, error: {}", res->code(), res->string().unwrapOr("unable to get error string")), res->code());
-                return;
-            }
-
-            auto jsonRes = res->json();
-            if (jsonRes.isErr()) {
-                showError(fmt::format("error getting json: {}", jsonRes.unwrapErr()), 1003);
-                return;
-            }
-
-            auto json = jsonRes.unwrap();
-
-            auto scoreResult = json["score"].asInt();
-            if (scoreResult.isErr()) {
-                showError(fmt::format("unable to get score: {}", scoreResult.unwrapErr()), 1103);
-                return;
-            }
-            auto score = scoreResult.unwrap();
-
-            // if all versions aren't selected, your total score will not be impacted
-            if (options.versions.size() == 13) {
-                totalScore += score;
-            }
-            
-            safeRemoveLoadingLayer();
-
-            log::info("{}", static_cast<int>(json["correctDate"]["year"].asInt().unwrapOr(0)));
-            callback(score, {
-                .year = static_cast<int>(json["correctDate"]["year"].asInt().unwrapOr(0)),
-                .month = static_cast<int>(json["correctDate"]["month"].asInt().unwrapOr(0)),
-                .day = static_cast<int>(json["correctDate"]["day"].asInt().unwrapOr(0)),
-            }, date);
-            this->currentLevel = nullptr;
-            this->realLevel = nullptr;
-        } else if (e->isCancelled()) {
-            safeRemoveLoadingLayer();
-            showError("request cancelled", 1303);
-        }
-    });
-
-    auto req = web::WebRequest();
-    setupRequest(req, matjson::makeObject({}));
-    m_listener.setFilter(req.post(fmt::format("{}/guess/{}-{}-{}", getServerUrl(), date.year, date.month, date.day)));
 }
 
 void GuessManager::endGame(bool pendingGuess) {
@@ -579,7 +634,7 @@ void GuessManager::getAccount(std::function<void(LeaderboardEntry)> callback, in
     }
     
     setupRequest(req, matjson::makeObject({}));
-    log::info("{}/{}/{}", getServerUrl(), endpoint, (accountID == 0) ? username : std::to_string(accountID));
+    // log::info("{}/{}/{}", getServerUrl(), endpoint, (accountID == 0) ? username : std::to_string(accountID));
     m_listener.setFilter(req.get(fmt::format("{}/{}/{}", getServerUrl(), endpoint, (accountID == 0) ? username : std::to_string(accountID))));
 }
 
@@ -592,7 +647,9 @@ void GuessManager::syncScores() {
     int oldAttempts = realLevel->m_attempts.value();
     realLevel->handleStatsConflict(currentLevel);
     realLevel->m_attempts = sessionAttempts + oldAttempts;
-    realLevel->m_orbCompletion = currentLevel->m_orbCompletion;
+    // realLevel->m_orbCompletion = currentLevel->m_orbCompletion;
+    auto gsm = GameStatsManager::get();
+    gsm->awardCurrencyForLevel(realLevel);
     GameManager::get()->reportPercentageForLevel(realLevel->m_levelID, realLevel->m_normalPercent, realLevel->isPlatformer());
 }
 
@@ -714,6 +771,9 @@ std::string GuessManager::statusToString(TaskStatus status) {
 
         case TaskStatus::LoadingAccount:
             return "Loading Account"; break;
+
+        case TaskStatus::WaitingForOpponent:
+            return "Waiting for opponent..."; break;
 
         default:
             return "Unknown"; break;

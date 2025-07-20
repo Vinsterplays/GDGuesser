@@ -84,12 +84,12 @@ bool GuessPopup::setup() {
         }
         
         if (!invalidDate) {
+            this->onClose(nullptr);
             gm.submitGuess({
                 year,
                 month,
                 day
             }, [this](int score, LevelDate correctDate, LevelDate date) {
-                this->onClose(nullptr);
                 ResultsPopup::create(score, correctDate, date)->show();
             });
         }

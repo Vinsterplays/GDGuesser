@@ -1,4 +1,5 @@
 #include "LevelLayer.hpp"
+#include "ui/duels/DuelsPersistentNode.hpp"
 
 #include <managers/GuessManager.hpp>
 #include <ui/GuessPopup.hpp>
@@ -46,6 +47,8 @@ bool LevelLayer::init() {
 
             auto sequence = CCSequence::create(CCDelayTime::create(0.f), CCCallFunc::create(this, callfunc_selector(LevelLayer::playStep2)), 0);
             this->runAction(sequence);
+
+            GuessManager::get().persistentNode->slideOff();
 
             createLoadingSprite();
 

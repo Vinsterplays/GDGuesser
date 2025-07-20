@@ -2,7 +2,7 @@
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/LoadingSpinner.hpp>
-#include <managers/Enums.hpp>
+#include <managers/types.hpp>
 
 using namespace geode::prelude;
 
@@ -23,6 +23,7 @@ protected:
     CCLabelBMFont* m_statusLabel;
 
     TaskStatus m_status;
+    CCAction* timeoutAction = nullptr;
 public:
     static LoadingOverlayLayer* create();
 

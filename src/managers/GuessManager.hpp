@@ -3,74 +3,11 @@
 #include <Geode/Geode.hpp>
 #include <Geode/utils/web.hpp>
 #include <ui/layers/LoadingOverlayLayer.hpp>
-#include "Enums.hpp"
+#include "types.hpp"
 
 using namespace geode::prelude;
 
-struct LevelDate {
-    int year;
-    int month;
-    int day;
-};
-
-struct LeaderboardEntry {
-    int account_id;
-    std::string username;
-    int total_score;
-    int icon_id;
-    int color1;
-    int color2;
-    int color3;
-    float accuracy;
-    int max_score;
-    int total_normal_guesses;
-    int total_hardcore_guesses;
-    int leaderboard_position;
-};
-
-struct GuessEntry {
-    int level_id;
-    int account_id;
-    GameMode mode;
-    int score;
-    LevelDate correct_date;
-    LevelDate guessed_date;
-    std::string level_name;
-    std::string level_creator;
-};
-
-struct GuessesResponse {
-    std::vector<GuessEntry> entries;
-    int page;
-    int total_pages;
-};
-
-struct GameOptions {
-    GameMode mode;
-    std::vector<std::string> versions;
-};
-
-template <>
-struct matjson::Serialize<GameOptions> {
-    static geode::Result<GameOptions> fromJson(const matjson::Value& value) {
-        GEODE_UNWRAP_INTO(int mode, value["mode"].asInt());
-        GEODE_UNWRAP_INTO(std::vector<Value> versionsArr, value["versions"].asArray());
-
-        std::vector<std::string> versions;
-
-        for (auto versionsVal : versionsArr) {
-            versions.push_back(versionsVal.asString().unwrap());
-        }
-
-        return geode::Ok(GameOptions { .mode = static_cast<GameMode>(mode), .versions = versions });
-    }
-    static matjson::Value toJson(const GameOptions& options) {
-        return matjson::makeObject({
-            { "mode", static_cast<int>(options.mode) },
-            { "versions", options.versions }
-        });
-    }
-};
+class DuelsPersistentNode;
 
 // gets and stores the current level,
 // as well as handles the game state.
@@ -80,8 +17,8 @@ protected:
 
     EventListener<web::WebTask> m_listener;
 
-    // DashAuth token
-    std::string m_daToken;
+    // JWT
+    std::string m_token;
 
     // callbacks
     void levelDownloadFinished(GJGameLevel* level) override;
@@ -113,11 +50,21 @@ public:
     int totalScore = 0;
     
     GameOptions options;
+
+    std::string duelJoinCode;
+    Duel currentDuel;
+
+    DuelsPersistentNode* persistentNode = nullptr;
     
+    void authenticate(std::function<void()> cb);
+
     void startNewGame(GameOptions options);
     void endGame(bool pendingGuess);
     void applyPenalty(std::function<void()> callback);
     void submitGuess(LevelDate date, std::function<void(int score, LevelDate correctDate, LevelDate date)> callback);
+
+    void startGame(int levelId, GameOptions options);
+    void submitGuessDuel(LevelDate date, std::function<void(int score, LevelDate correctDate, LevelDate date)> callback);
     
     void updateStatusAndLoading(TaskStatus status);
     void syncScores();
@@ -132,6 +79,9 @@ public:
     void getAccount(std::function<void(LeaderboardEntry)> callback, int accountID = 0, std::string username = "");
     void getGuesses(int accountID, std::function<void(GuessesResponse)> callback, int page = 0);
 
+    void createDuel(std::function<void()> cb);
+    void joinDuel(std::string code, std::function<void()> cb);
+
     const std::string getServerUrl();
     DateFormat getDateFormat();
     int getLevelDifficulty(GJGameLevel* level);
@@ -144,8 +94,10 @@ public:
     std::string verboseToSimple(int id, std::string error);
     std::vector<LeaderboardEntry> jsonToEntries(std::vector<matjson::Value>);
 
-    std::string formatDate(LevelDate);
-    std::string formatNumberWithCommas(int);
+    std::string formatDate(LevelDate date);
+    std::string formatNumberWithCommas(int number);
+
+    void connectToMP();
 
     static GuessManager& get() {
         static GuessManager instance;

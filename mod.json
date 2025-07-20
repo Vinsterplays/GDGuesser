@@ -1,5 +1,5 @@
 {
-	"geode": "4.5.0",
+	"geode": "4.6.3",
 	"gd": {
 		"win": "2.2074",
 		"android": "2.2074",
@@ -8,12 +8,16 @@
 	},
 	"id": "techstudent10.gdguesser",
 	"name": "GDGuesser",
-	"version": "v1.0.0-beta.11",
+	"version": "v1.0.0-beta.12",
 	"developer": "TechStudent10",
 	"description": "Guess the date of Geometry Dash levels!",
 	"resources": {
 		"sprites": [
 			"resources/*.png"
+		],
+		"files": [
+			"resources/audio/*.mp3",
+			"resources/fonts/*.png"
 		]
 	},
 	"settings": {
@@ -36,6 +40,12 @@
 			"name": "Don't Save Levels",
 			"default": false,
 			"description": "Whether to save levels from your GDGuesser runs."
+		},
+		"duels-music-playback": {
+			"type": "bool",
+			"name": "Music Playback on the Duels Results Screen",
+			"default": true,
+			"description": "Whether to play the background music on the Duels results screen"
 		}
 	},
 	"dependencies": {

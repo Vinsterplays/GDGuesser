@@ -42,6 +42,39 @@ endif()
 add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
 CPMAddPackage("gh:GlobedGD/argon@1.1.0")
-target_link_libraries(${PROJECT_NAME} argon)
+CPMAddPackage("gh:zaphoyd/websocketpp#0.8.2")
+include(cmake/FindAsio.cmake)
+
+# THANK YOU ALK
+CPMAddPackage(
+	NAME wolfssl
+	GIT_REPOSITORY "https://github.com/wolfSSL/wolfssl"
+	GIT_TAG "v5.8.0-stable"
+	OPTIONS "WOLFSSL_QUIC ON"
+			"WOLFSSL_HARDEN OFF"
+			"WOLFSSL_SESSION_TICKET ON"
+			"WOLFSSL_INSTALL OFF"
+			"WOLFSSL_CRYPT_TESTS OFF"
+			"WOLFSSL_EXAMPLES OFF"
+			"BUILD_SHARED_LIBS OFF"
+			"WOLFSSL_ASIO ON"
+			"WOLFSSL_OPENSSLEXTRA ON"
+)
+
+get_target_property(WOLFSSL_DEFINITIONS wolfssl COMPILE_DEFINITIONS)
+get_target_property(WOLFSSL_INCLUDE_DIRS wolfssl INCLUDE_DIRECTORIES)
+
+target_compile_definitions(asio INTERFACE "${WOLFSSL_DEFINITIONS}")
+target_include_directories(asio INTERFACE "${WOLFSSL_INCLUDE_DIRS}" "${wolfssl_SOURCE_DIR}/wolfssl")
+
+target_compile_definitions(${PROJECT_NAME} PUBLIC ASIO_STANDALONE WIN32_LEAN_AND_MEAN=1)
+# OpenSSL::SSL OpenSSL::Crypto
+target_link_libraries(${PROJECT_NAME} argon wolfssl asio)
+target_include_directories(${PROJECT_NAME} PRIVATE
+  ${websocketpp_SOURCE_DIR}
+  ${asio_SOURCE_DIR}/asio/include
+  ${OPENSSL_INCLUDE_DIR}
+  ${wolfssl_SOURCE_DIR}/wolfssl
+)
 
 setup_geode_mod(${PROJECT_NAME})

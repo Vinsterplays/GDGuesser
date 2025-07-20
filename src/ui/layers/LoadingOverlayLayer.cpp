@@ -25,9 +25,6 @@ bool LoadingOverlayLayer::init() {
     m_spinner = LoadingSpinner::create(100.f);
     this->addChild(m_spinner);
     
-    // This makes sure that the game can never softlock because of bad coding skills
-    this->runAction(CCSequence::create(CCDelayTime::create(TIMEOUT_SECONDS), CCCallFunc::create(this, callfunc_selector(LoadingOverlayLayer::removeMe)), 0));
-    
     m_statusLabel = CCLabelBMFont::create("", "bigFont.fnt");
     m_statusLabel->setAlignment(CCTextAlignment::kCCTextAlignmentCenter);
     this->addChild(m_statusLabel);
@@ -46,6 +43,19 @@ bool LoadingOverlayLayer::init() {
 
 void LoadingOverlayLayer::updateStatus(TaskStatus status) {
     auto& gm = GuessManager::get();
+    if (timeoutAction) {
+        this->stopAction(timeoutAction);
+    }
+
+    // even though we don't want the game to softlock,
+    // in duels it's fine to get rid of the timeout
+    if (gm.taskStatus != TaskStatus::WaitingForOpponent) {
+        // This makes sure that the game can never softlock because of bad coding skills
+        timeoutAction = CCSequence::create(CCDelayTime::create(TIMEOUT_SECONDS), CCCallFunc::create(this, callfunc_selector(LoadingOverlayLayer::removeMe)), 0);
+        this->runAction(timeoutAction);
+    } else {
+        timeoutAction = nullptr;
+    }
     
     auto size = CCDirector::get()->getWinSize();
     m_status = status;

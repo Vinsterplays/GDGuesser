@@ -1,4 +1,5 @@
 #include "HookedPauseLayer.hpp"
+#include "ui/duels/DuelsPersistentNode.hpp"
 #include <managers/GuessManager.hpp>
 #include <ui/layers/LevelLayer.hpp>
 
@@ -32,6 +33,8 @@ void HookedPauseLayer::customSetup() {
     auto& gm = GuessManager::get();
     if (!gm.currentLevel) return;
 
+    gm.persistentNode->slideOn();
+
     if (auto titleLabel = typeinfo_cast<CCLabelBMFont*>(this->getChildByIDRecursive("level-name"))) {
         titleLabel->setString(gm.currentLevel->m_levelName.c_str());
     }
@@ -49,4 +52,14 @@ void HookedPauseLayer::onEdit(CCObject* sender) {
     dl->setZOrder(106);
     dl->animateInRandomSide();
     CCScene::get()->addChild(dl);
+}
+
+void HookedPauseLayer::onResume(CCObject* sender) {
+    PauseLayer::onResume(sender);
+    auto& gm = GuessManager::get();
+    if (!gm.currentLevel) {
+        return;
+    }
+
+    gm.persistentNode->slideOff();
 }
