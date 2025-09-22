@@ -91,8 +91,9 @@ void NetworkManager::connect(std::string token, std::function<void()> callback) 
         error
     );
 
-    if (error) {
+    if (error || !connection) {
         log::error("no connection! {}", error.message());
+        return;
     }
 
     connection->append_header("Authorization", token);
@@ -112,6 +113,7 @@ void NetworkManager::disconnect() {
     if (error) {
         log::error("no disconnection! {}", error.message());
     }
+    handlers.clear();
 }
 
 TLSCtx NetworkManager::onTlsInit(Handle hdl) {
@@ -161,8 +163,12 @@ void NetworkManager::onMessage(Handle hdl, Client::message_ptr msg) {
     RecvMessage payload = payloadJSON.unwrap().as<RecvMessage>().unwrap();
     if (handlers.contains(payload.eventName)) {
         Loader::get()->queueInMainThread([this, payload] {
-            for (auto handler : handlers[payload.eventName]) {
-                handler.second(payload.payload);
+            auto it = handlers.find(payload.eventName);
+            if (it == handlers.end()) return;
+
+            auto snapshot = it->second;
+            for (auto& entry : snapshot) {
+                entry.second(payload.payload);
             }
         });
     } else {

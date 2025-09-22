@@ -116,6 +116,8 @@ const handlers: {
     "join duel": async (socket, user, payload) => {
         const joinCode: string = payload["joinCode"]
 
+        if (!games[joinCode]) return; // TODO: send error (caused by user clicking join without entering a code)
+
         if (Object.keys(games[joinCode].players).includes(user.account_id.toString())) {
             // TODO: send error
             return
@@ -131,6 +133,8 @@ const handlers: {
         // go through /login which automatically inserts the
         // user into the DB
         // i better not regret this
+
+        // this could prolly be abused to crash the server -- Vinster
         games[joinCode].players[user.account_id] = (await getUserByID(user.account_id)) as User
         sockets[joinCode][user.account_id] = socket
 
@@ -186,11 +190,19 @@ const handlers: {
         }).date
 
         const duel = getGameByPlayer(user.account_id) as GameMP
-        const correctDate: string = (
-        await (
-            await fetch(`https://history.geometrydash.eu/api/v1/date/level/${duel.currentLevelId}/`)).json()
-        )["approx"]["estimation"]
-        .split("T")[0]
+        let correctDate: string;
+        try {
+            const res = await fetch(`https://history.geometrydash.eu/api/v1/date/level/${duel.currentLevelId}/`)
+            if (!res.ok) throw new Error("History server returned non-OK status")
+
+            const json = await res.json()
+            correctDate = json["approx"]["estimation"].split("T")[0]
+        } catch (err) {
+            // TODO: send this error to client and cancel duel
+            // I trust you to add that error event --Vinster
+            console.error(`gdhistory offline`);
+            return
+        }
 
         const score = calcScore(date, stringToLvlDate(correctDate), duel.options)
         tempScores[duel.joinCode][user.account_id] = score[0]
@@ -265,6 +277,46 @@ const handlers: {
                 }
             )
         )
+    },
+    "forfeit": (socket, user, payload) => {
+        try {
+            const duel = getGameByPlayer(user.account_id) as GameMP
+            if (duel.playersReady.includes(user.account_id)) {
+                duel.playersReady.splice(
+                    duel.playersReady.indexOf(user.account_id),
+                    1
+                )
+            }
+            // this is only true if the duel has started
+            if (Object.keys(duel.scores).length !== 0) {
+                broadcast(
+                    duel.joinCode,
+                    createEvent<DuelEnded>(
+                        "duel ended",
+                        {
+                            duel,
+                            loser: user.account_id,
+                            winner: parseInt(Object.keys(duel.players).filter(
+                                accId => accId !== user?.account_id.toString()
+                            )[0])
+                        }
+                    )
+                )
+
+                console.log(`duel ${duel.joinCode} ended`)
+                return
+            }
+            
+            if (Object.keys(duel.players).length === 0) {
+                deleteDuel(duel.joinCode)
+                console.log(`deleted duel ${duel.joinCode}`)
+                return
+            }
+            games[duel.joinCode] = duel
+            duelUpdated(duel.joinCode)
+        } catch (e) {
+            console.error(e)
+        }
     }
 }
 
