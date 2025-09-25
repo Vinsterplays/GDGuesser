@@ -173,7 +173,8 @@ void DuelsPersistentNode::persist() {
     log::debug("persisting");
     auto sm = SceneManager::get();
     sm->keepAcrossScenes(this);
-    this->setZOrder(9999);
+    int highest = CCScene::get()->getHighestChildZ();
+    this->setZOrder(highest + 1);
     log::debug("persisted"); 
 }
 
@@ -184,19 +185,27 @@ void DuelsPersistentNode::forget() {
 }
 
 void DuelsPersistentNode::slideOn() {
+    auto director = CCDirector::sharedDirector();
+    auto screenSize = director->getWinSize();
+
     auto action = CCEaseExponentialOut::create(
-        CCMoveBy::create(0.5f, { -MOVE_BY, 0.f })
+        CCMoveTo::create(0.5f, { screenSize.width, screenSize.height })
     );
     if (GuessManager::get().persistentNode) {
+        this->stopAllActions();
         this->runAction(action);
     }
 }
 
 void DuelsPersistentNode::slideOff() {
+    auto director = CCDirector::sharedDirector();
+    auto screenSize = director->getWinSize();
+
     auto action = CCEaseExponentialIn::create(
-        CCMoveBy::create(0.5f, { MOVE_BY, 0.f })
+        CCMoveTo::create(0.5f, { screenSize.width + MOVE_BY, screenSize.height })
     );
     if (GuessManager::get().persistentNode) {
+        this->stopAllActions();
         this->runAction(action);
     }
 }
